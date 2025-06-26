@@ -3,9 +3,10 @@ package crsf
 import (
 	"encoding/hex"
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCore_Generate_Then_Validate(t *testing.T) {
