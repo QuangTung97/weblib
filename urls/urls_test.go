@@ -16,6 +16,47 @@ type testParams struct {
 	Val  string `json:"val"`
 }
 
+func TestPathNew(t *testing.T) {
+	t.Run("not a struct", func(t *testing.T) {
+		assert.PanicsWithValue(t, "params type 'int' is not a struct", func() {
+			New[int]("/home")
+		})
+	})
+
+	t.Run("missing tag name", func(t *testing.T) {
+		type invalidStruct struct {
+			ID int
+		}
+		assert.PanicsWithValue(t, "missing json tag of field 'ID' in struct 'invalidStruct'", func() {
+			New[invalidStruct]("/home")
+		})
+	})
+
+	t.Run("not support type", func(t *testing.T) {
+		type invalidStruct struct {
+			ID   int     `json:"id"`
+			Name *string `json:"name"`
+		}
+		assert.PanicsWithValue(
+			t,
+			"not support type '*string' of field 'Name' in struct 'invalidStruct'",
+			func() {
+				New[invalidStruct]("/home")
+			},
+		)
+	})
+
+	t.Run("missing json tag in path param", func(t *testing.T) {
+		assert.PanicsWithValue(
+			t,
+			"missing json tag 'pno' in struct 'testParams'",
+			func() {
+				New[testParams]("/products/{pno}")
+			},
+		)
+	})
+}
+
 func TestPath_Eval(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		p := New[testParams]("/users/{id}")

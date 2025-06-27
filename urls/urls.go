@@ -1,7 +1,6 @@
 package urls
 
 import (
-	"errors"
 	"fmt"
 	"iter"
 	"net/url"
@@ -13,6 +12,24 @@ import (
 )
 
 func New[T any](pattern string) *Path[T] {
+	var empty T
+
+	jsonTagSet := map[string]struct{}{}
+	for jsonTag := range getAllJsonTags(empty) {
+		if jsonTag.err != nil {
+			panic(jsonTag.err.Error())
+		}
+		jsonTagSet[jsonTag.name] = struct{}{}
+	}
+
+	for param := range findPathParams(pattern) {
+		_, ok := jsonTagSet[param.name]
+		if !ok {
+			structName := reflect.TypeOf(empty).Name()
+			panic(fmt.Sprintf("missing json tag '%s' in struct '%s'", param.name, structName))
+		}
+	}
+
 	return &Path[T]{
 		pattern: pattern,
 	}
@@ -109,7 +126,8 @@ func getAllJsonTags(obj any) iter.Seq[jsonTagValue] {
 
 	if valType.Kind() != reflect.Struct {
 		return func(yield func(jsonTagValue) bool) {
-			yield(jsonTagValue{err: errors.New("params type is not a struct")})
+			err := fmt.Errorf("params type '%s' is not a struct", valType.Name())
+			yield(jsonTagValue{err: err})
 		}
 	}
 
@@ -119,10 +137,29 @@ func getAllJsonTags(obj any) iter.Seq[jsonTagValue] {
 			fieldVal := value.Field(index)
 
 			jsonTag := fieldType.Tag.Get("json")
+			if len(jsonTag) == 0 {
+				err := fmt.Errorf(
+					"missing json tag of field '%s' in struct '%s'",
+					fieldType.Name, valType.Name(),
+				)
+				yield(jsonTagValue{err: err})
+				return
+			}
+
+			valueStr, ok := reflectValueToString(fieldVal)
+			if !ok {
+				err := fmt.Errorf(
+					"not support type '%s' of field '%s' in struct '%s'",
+					fieldType.Type.String(), fieldType.Name, valType.Name(),
+				)
+				yield(jsonTagValue{err: err})
+				return
+
+			}
 
 			tagVal := jsonTagValue{
 				name:   jsonTag,
-				value:  reflectValueToString(fieldVal),
+				value:  valueStr,
 				isZero: fieldVal.IsZero(),
 			}
 
@@ -133,31 +170,32 @@ func getAllJsonTags(obj any) iter.Seq[jsonTagValue] {
 	}
 }
 
-func reflectValueToString(val reflect.Value) string {
-	output, ok := null.IsNullType(val)
-	if ok {
-		if !output.NonNull {
-			return "null"
-		}
-		val = output.DataField
-	}
-
+func reflectValueToString(val reflect.Value) (string, bool) {
 	switch val.Kind() {
 	case reflect.Bool:
-		return strconv.FormatBool(val.Bool())
+		return strconv.FormatBool(val.Bool()), true
 
 	case reflect.String:
-		return val.String()
+		return val.String(), true
 
 	case reflect.Int, reflect.Int8, reflect.Int16,
 		reflect.Int32, reflect.Int64:
-		return strconv.FormatInt(val.Int(), 10)
+		return strconv.FormatInt(val.Int(), 10), true
 
 	case reflect.Uint, reflect.Uint8, reflect.Uint16,
 		reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return strconv.FormatUint(val.Uint(), 10)
+		return strconv.FormatUint(val.Uint(), 10), true
 
 	default:
-		return fmt.Sprintf("%v", val.Interface())
+		output, ok := null.IsNullType(val)
+		if !ok {
+			return "", false
+		}
+
+		if output.NonNull {
+			return reflectValueToString(output.DataField)
+		}
+
+		return "null", true
 	}
 }
