@@ -3,6 +3,7 @@ package null
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
 )
 
 // Null for representing nullable value, is a better replacement for pointer
@@ -59,4 +60,49 @@ func (n *Null[T]) UnmarshalJSON(data []byte) error {
 
 	n.Valid = true
 	return nil
+}
+
+type CheckNullOutput struct {
+	NonNull    bool
+	ValidField reflect.Value
+	DataField  reflect.Value
+}
+
+func IsNullType(val reflect.Value) (CheckNullOutput, bool) {
+	if val.Kind() != reflect.Struct {
+		return CheckNullOutput{}, false
+	}
+
+	valType := val.Type()
+	if valType.NumField() != 2 {
+		return CheckNullOutput{}, false
+	}
+
+	firstField := val.Field(0)
+	firstFieldType := valType.Field(0)
+
+	secondField := val.Field(1)
+	secondFieldType := valType.Field(1)
+
+	if firstField.Kind() != reflect.Bool {
+		return CheckNullOutput{}, false
+	}
+	if firstFieldType.Name != "Valid" {
+		return CheckNullOutput{}, false
+	}
+	if secondFieldType.Name != "Data" {
+		return CheckNullOutput{}, false
+	}
+
+	output := CheckNullOutput{
+		ValidField: firstField,
+		DataField:  secondField,
+	}
+
+	if !firstField.Bool() {
+		return output, true
+	}
+
+	output.NonNull = true
+	return output, true
 }
