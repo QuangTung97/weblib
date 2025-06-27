@@ -12,6 +12,8 @@ import (
 type testParams struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
+	Age  int    `json:"age"`
+	Val  string `json:"val"`
 }
 
 func TestPath_Eval(t *testing.T) {
@@ -22,6 +24,23 @@ func TestPath_Eval(t *testing.T) {
 			Name: "hello",
 		})
 		assert.Equal(t, "/users/11?name=hello", newURL)
+	})
+
+	t.Run("with special string", func(t *testing.T) {
+		p := New[testParams]("/users%/{id}")
+		newURL := p.Eval(testParams{
+			ID:   11,
+			Name: "hello$",
+		})
+		assert.Equal(t, "/users%25/11?name=hello%24", newURL)
+	})
+
+	t.Run("with empty struct", func(t *testing.T) {
+		p := New[testParams]("/users/{id}/members/{val}")
+		newURL := p.Eval(testParams{
+			Val: "test",
+		})
+		assert.Equal(t, "/users/0/members/test", newURL)
 	})
 }
 
@@ -104,6 +123,8 @@ func TestGetAllJSONTags(t *testing.T) {
 
 			Desc     null.Null[string] `json:"desc"`
 			MemberID null.Null[int32]  `json:"member_id"`
+
+			Checked bool `json:"checked"`
 		}
 
 		result := getAllJsonTagsList(entity{
@@ -112,7 +133,8 @@ func TestGetAllJSONTags(t *testing.T) {
 			Age:   21,
 			Count: 130,
 
-			Desc: null.New("sample desc"),
+			Desc:    null.New("sample desc"),
+			Checked: true,
 		})
 		assert.Equal(t, []jsonTagValue{
 			{name: "id", value: "11"},
@@ -122,6 +144,7 @@ func TestGetAllJSONTags(t *testing.T) {
 			{name: "count", value: "130"},
 			{name: "desc", value: "sample desc"},
 			{name: "member_id", value: "null", isZero: true},
+			{name: "checked", value: "true"},
 		}, result)
 	})
 }

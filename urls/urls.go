@@ -4,19 +4,55 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"net/url"
 	"reflect"
 	"strconv"
+	"strings"
+
+	"github.com/QuangTung97/weblib/null"
 )
 
 func New[T any](pattern string) *Path[T] {
-	return &Path[T]{}
+	return &Path[T]{
+		pattern: pattern,
+	}
 }
 
 type Path[T any] struct {
+	pattern string
 }
 
 func (p Path[T]) Eval(params T) string {
-	return ""
+	jsonTagMap := map[string]jsonTagValue{}
+	for jsonTag := range getAllJsonTags(params) {
+		jsonTagMap[jsonTag.name] = jsonTag
+	}
+
+	var buf strings.Builder
+	lastIndex := 0
+	for param := range findPathParams(p.pattern) {
+		buf.WriteString(p.pattern[lastIndex:param.begin])
+
+		jsonTag := jsonTagMap[param.name]
+		delete(jsonTagMap, param.name)
+		buf.WriteString(jsonTag.value)
+
+		lastIndex = param.end
+	}
+
+	queryParams := url.Values{}
+	for _, jsonTag := range jsonTagMap {
+		if jsonTag.isZero {
+			continue
+		}
+		queryParams.Add(jsonTag.name, jsonTag.value)
+	}
+
+	u := url.URL{
+		Path:     buf.String(),
+		RawQuery: queryParams.Encode(),
+	}
+	return u.String()
 }
 
 type pathParam struct {
@@ -98,7 +134,18 @@ func getAllJsonTags(obj any) iter.Seq[jsonTagValue] {
 }
 
 func reflectValueToString(val reflect.Value) string {
+	output, ok := null.IsNullType(val)
+	if ok {
+		if !output.NonNull {
+			return "null"
+		}
+		val = output.DataField
+	}
+
 	switch val.Kind() {
+	case reflect.Bool:
+		return strconv.FormatBool(val.Bool())
+
 	case reflect.String:
 		return val.String()
 
