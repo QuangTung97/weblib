@@ -3,6 +3,7 @@ package crsf
 import (
 	"bytes"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
@@ -21,12 +22,22 @@ func (e *Error) Error() string {
 
 type Core struct {
 	secretKey string
-	randFunc  func() ([]byte, error)
+	randFunc  func() []byte
+}
+
+func InitCore(secretKey string) *Core {
+	return NewCore(secretKey, func() []byte {
+		var data [20]byte
+		if _, err := rand.Read(data[:]); err != nil {
+			panic(err)
+		}
+		return data[:]
+	})
 }
 
 func NewCore(
 	secretKey string, // for HMAC
-	randFunc func() ([]byte, error),
+	randFunc func() []byte,
 ) *Core {
 	return &Core{
 		secretKey: secretKey,
@@ -34,14 +45,10 @@ func NewCore(
 	}
 }
 
-func (g *Core) generateBeforeDigest(sessionID string) ([]byte, string, error) {
-	randData, err := g.randFunc()
-	if err != nil {
-		return nil, "", err
-	}
-
+func (g *Core) generateBeforeDigest(sessionID string) ([]byte, string) {
+	randData := g.randFunc()
 	randStr := hex.EncodeToString(randData)
-	return g.generateMessageWithRandData(sessionID, randStr), randStr, nil
+	return g.generateMessageWithRandData(sessionID, randStr), randStr
 }
 
 func (g *Core) generateMessageWithRandData(sessionID string, randStr string) []byte {
@@ -63,14 +70,10 @@ func (g *Core) generateMessageWithRandData(sessionID string, randStr string) []b
 	return msg.Bytes()
 }
 
-func (g *Core) Generate(sessionID string) (string, error) {
-	msgBytes, randStr, err := g.generateBeforeDigest(sessionID)
-	if err != nil {
-		return "", err
-	}
-
+func (g *Core) Generate(sessionID string) string {
+	msgBytes, randStr := g.generateBeforeDigest(sessionID)
 	hashBytes := g.computeHMAC(msgBytes)
-	return base64.StdEncoding.EncodeToString(hashBytes) + "." + randStr, nil
+	return base64.StdEncoding.EncodeToString(hashBytes) + "." + randStr
 }
 
 func (g *Core) computeHMAC(msgBytes []byte) []byte {
