@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -53,16 +54,27 @@ func htmlMethod[T any](
 	urlPath urls.Path[T],
 	handler func(ctx Context, params T) (hx.Elem, error),
 ) {
+	pattern := urlPath.GetPattern()
+
 	// check duplicate endpoint
 	key := endpointKey{
 		method:  method,
-		pattern: urlPath.GetPattern(),
+		pattern: pattern,
 	}
 	_, existed := router.state.registered[key]
 	if existed {
-		panic(fmt.Sprintf("%s %s is already defined", method, urlPath.GetPattern()))
+		panic(fmt.Sprintf("%s %s is already defined", method, pattern))
 	}
 	router.state.registered[key] = struct{}{}
+
+	// check satisfying url prefix
+	if !strings.HasPrefix(pattern, router.urlPrefix) {
+		panic(fmt.Sprintf(
+			"%s %s not satisfy url prefix '%s'",
+			method, pattern, router.urlPrefix,
+		))
+
+	}
 
 	// setup middlewares
 	genericHandler := func(ctx Context, req any) (any, error) {

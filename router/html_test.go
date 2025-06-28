@@ -360,3 +360,23 @@ func TestHtmlGet__Multi__Duplicated_Pattern__Panic(t *testing.T) {
 		})
 	})
 }
+
+func TestHtmlGet__With_Group_Prefix__Not_Match__Panic(t *testing.T) {
+	h := newHtmlTest()
+
+	urlPath := urls.New[htmlParams]("/api/users/{id}")
+	productPath := urls.New[htmlParams]("/api/products/{id}")
+
+	h.router = h.router.WithGroup("/api")
+	h.router = h.router.WithGroup("/users")
+
+	HtmlGet(h.router, urlPath, func(ctx Context, params htmlParams) (hx.Elem, error) {
+		return hx.None(), nil
+	})
+
+	assert.PanicsWithValue(t, "GET /api/products/{id} not satisfy url prefix '/api/users'", func() {
+		HtmlGet(h.router, productPath, func(ctx Context, params htmlParams) (hx.Elem, error) {
+			return hx.None(), nil
+		})
+	})
+}

@@ -9,6 +9,7 @@ import (
 type Router struct {
 	state       *routerState
 	middlewares []Middleware
+	urlPrefix   string
 }
 
 func NewRouter() *Router {
@@ -23,6 +24,12 @@ func NewRouter() *Router {
 	r.state.handleHtmlError = r.DefaultHtmlErrorHandler
 
 	return r
+}
+
+func (r *Router) WithGroup(groupPrefix string) *Router {
+	newRouter := *r
+	newRouter.urlPrefix += groupPrefix
+	return &newRouter
 }
 
 func (r *Router) GetChi() *chi.Mux {
