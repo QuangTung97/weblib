@@ -10,9 +10,15 @@ type Elem struct {
 	name     []byte
 	value    []byte
 	children iter.Seq[Elem]
+	extra    *elemExtraInfo
 }
 
 type ElemID string
+
+type elemExtraInfo struct {
+	childValidator    func(child Elem, w *writerHelper)
+	afterTravelRender func(w *writerHelper)
+}
 
 type elemType int
 
@@ -27,7 +33,10 @@ const (
 )
 
 func (e Elem) Render(writer io.Writer) error {
-	w := writerHelper{writer: writer}
+	w := writerHelper{
+		writer:       writer,
+		validateFunc: func(elem Elem, w *writerHelper) {},
+	}
 	e.renderWithHelper(&w)
 	return w.err
 }
@@ -45,6 +54,10 @@ func (e Elem) renderWithHelper(w *writerHelper) {
 		e.children = func(yield func(Elem) bool) {}
 	}
 
+	if e.extra != nil {
+		w.validateFunc = e.extra.childValidator
+	}
+
 	switch e.elemType {
 	case elemTypeNormalTag:
 		w.writeBytes(openTagBegin)
@@ -55,9 +68,16 @@ func (e Elem) renderWithHelper(w *writerHelper) {
 		w.writeBytes(openTagEnd)
 
 		for child := range e.children {
+			w.validateFunc(child, w)
 			child.renderWithHelper(w)
 			if w.err != nil {
 				return
+			}
+		}
+
+		if w.validateFailed {
+			if e.extra != nil {
+				e.extra.afterTravelRender(w)
 			}
 		}
 
@@ -112,6 +132,9 @@ func (e Elem) renderAttribute(w *writerHelper) {
 type writerHelper struct {
 	writer io.Writer
 	err    error
+
+	validateFunc   func(elem Elem, w *writerHelper)
+	validateFailed bool
 }
 
 func (w *writerHelper) writeBytes(data []byte) {
