@@ -75,10 +75,8 @@ func (e Elem) renderWithHelper(w *writerHelper) {
 			}
 		}
 
-		if w.validateFailed {
-			if e.extra != nil {
-				e.extra.afterTravelRender(w)
-			}
+		if e.extra != nil {
+			e.extra.afterTravelRender(w)
 		}
 
 		w.writeBytes(closeTagBegin)
@@ -133,8 +131,7 @@ type writerHelper struct {
 	writer io.Writer
 	err    error
 
-	validateFunc   func(elem Elem, w *writerHelper)
-	validateFailed bool
+	validateFunc func(elem Elem, w *writerHelper)
 }
 
 func (w *writerHelper) writeBytes(data []byte) {

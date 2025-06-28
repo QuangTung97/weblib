@@ -19,6 +19,7 @@ func StrictForm[T any](
 
 	e := newNormalTag("form", children)
 
+	var violated bool
 	var violatedName string
 
 	validateFunc := func(child Elem, w *writerHelper) {
@@ -35,8 +36,8 @@ func StrictForm[T any](
 			return
 		}
 
-		if !w.validateFailed {
-			w.validateFailed = true
+		if !violated {
+			violated = true
 			violatedName = nameKey
 		}
 	}
@@ -44,6 +45,10 @@ func StrictForm[T any](
 	e.extra = &elemExtraInfo{
 		childValidator: validateFunc,
 		afterTravelRender: func(w *writerHelper) {
+			if !violated {
+				return
+			}
+
 			// log using slog
 			StrictFormErrorLogFunc(violatedName)
 
