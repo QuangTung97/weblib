@@ -12,12 +12,40 @@ import (
 	"github.com/QuangTung97/weblib/urls"
 )
 
+// HtmlGet set up Get handler
 func HtmlGet[T any](
 	router *Router,
 	urlPath urls.Path[T],
 	handler func(ctx Context, params T) (hx.Elem, error),
 ) {
 	htmlMethod(router, http.MethodGet, urlPath, handler)
+}
+
+// HtmlPost set up Post handler
+func HtmlPost[T any](
+	router *Router,
+	urlPath urls.Path[T],
+	handler func(ctx Context, params T) (hx.Elem, error),
+) {
+	htmlMethod(router, http.MethodPost, urlPath, handler)
+}
+
+// HtmlPut set up Put handler
+func HtmlPut[T any](
+	router *Router,
+	urlPath urls.Path[T],
+	handler func(ctx Context, params T) (hx.Elem, error),
+) {
+	htmlMethod(router, http.MethodPut, urlPath, handler)
+}
+
+// HtmlDelete set up Delete handler
+func HtmlDelete[T any](
+	router *Router,
+	urlPath urls.Path[T],
+	handler func(ctx Context, params T) (hx.Elem, error),
+) {
+	htmlMethod(router, http.MethodDelete, urlPath, handler)
 }
 
 func htmlMethod[T any](
@@ -41,13 +69,6 @@ func htmlMethod[T any](
 		if err != nil {
 			return &HtmlError{
 				Reason:  ReasonBadPathParam,
-				Message: err.Error(),
-			}
-		}
-
-		if err := req.ParseForm(); err != nil {
-			return &HtmlError{
-				Reason:  ReasonBadFormParam,
 				Message: err.Error(),
 			}
 		}

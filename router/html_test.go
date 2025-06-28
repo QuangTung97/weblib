@@ -1,9 +1,11 @@
 package router
 
 import (
+	"bytes"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -71,6 +73,17 @@ func (h *htmlTest) addMiddlewares() {
 
 func (h *htmlTest) doGet(getURL string) {
 	h.req = httptest.NewRequest(http.MethodGet, getURL, nil)
+	h.writer = httptest.NewRecorder()
+	h.router.GetChi().ServeHTTP(h.writer, h.req)
+}
+
+func (h *htmlTest) doPost(postURL string, data url.Values) {
+	var body bytes.Buffer
+	body.WriteString(data.Encode())
+
+	h.req = httptest.NewRequest(http.MethodPost, postURL, &body)
+	h.req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 	h.writer = httptest.NewRecorder()
 	h.router.GetChi().ServeHTTP(h.writer, h.req)
 }
@@ -215,4 +228,32 @@ func TestHtmlGet__Handler_Error(t *testing.T) {
 		`{"error":"handler error"}`+"\n",
 		h.writer.Body.String(),
 	)
+}
+
+func TestHtmlPost_Normal(t *testing.T) {
+	h := newHtmlTest()
+
+	urlPath := urls.New[htmlParams]("/users/{id}")
+
+	var inputParams []htmlParams
+	HtmlPost(h.router, urlPath, func(ctx Context, params htmlParams) (hx.Elem, error) {
+		h.addAction("handler")
+		inputParams = append(inputParams, params)
+		return hx.None(), nil
+	})
+
+	h.doPost("/users/123", url.Values{
+		"age":     {"81"},
+		"search":  {"hello02"},
+		"another": {"invalid"},
+	})
+
+	// check input
+	assert.Equal(t, []htmlParams{
+		{ID: 123, Age: 81, Search: "hello02"},
+	}, inputParams)
+
+	// check output
+	assert.Equal(t, 200, h.writer.Code)
+	assert.Equal(t, "", h.writer.Body.String())
 }
