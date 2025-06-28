@@ -3,6 +3,7 @@ package router
 import (
 	"bytes"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -77,12 +78,18 @@ func (h *htmlTest) doGet(getURL string) {
 	h.router.GetChi().ServeHTTP(h.writer, h.req)
 }
 
-func (h *htmlTest) doPost(postURL string, data url.Values) {
-	var body bytes.Buffer
-	body.WriteString(data.Encode())
+func (h *htmlTest) doMethod(method string, postURL string, data url.Values) {
+	var body io.Reader
+	if data != nil {
+		var buf bytes.Buffer
+		buf.WriteString(data.Encode())
+		body = &buf
+	}
 
-	h.req = httptest.NewRequest(http.MethodPost, postURL, &body)
-	h.req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h.req = httptest.NewRequest(method, postURL, body)
+	if data != nil {
+		h.req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
 
 	h.writer = httptest.NewRecorder()
 	h.router.GetChi().ServeHTTP(h.writer, h.req)
@@ -230,6 +237,38 @@ func TestHtmlGet__Handler_Error(t *testing.T) {
 	)
 }
 
+func TestHtmlGet__Handler_Error__WithCustomErrorHandler(t *testing.T) {
+	h := newHtmlTest()
+
+	urlPath := urls.New[htmlParams]("/users/{id}")
+
+	var inputParams []htmlParams
+	HtmlGet(h.router, urlPath, func(ctx Context, params htmlParams) (hx.Elem, error) {
+		h.addAction("handler")
+		inputParams = append(inputParams, params)
+		return hx.None(), errors.New("handler error")
+	})
+
+	h.router.SetCustomHtmlErrorHandler(func(err error, writer http.ResponseWriter) {
+		writer.WriteHeader(http.StatusInternalServerError)
+		_, _ = writer.Write([]byte(err.Error()))
+	})
+
+	h.doGet("/users/123?age=81")
+
+	// check input
+	assert.Equal(t, []htmlParams{
+		{ID: 123, Age: 81},
+	}, inputParams)
+
+	// check output
+	assert.Equal(t, 500, h.writer.Code)
+	assert.Equal(t,
+		"handler error",
+		h.writer.Body.String(),
+	)
+}
+
 func TestHtmlPost_Normal(t *testing.T) {
 	h := newHtmlTest()
 
@@ -242,7 +281,7 @@ func TestHtmlPost_Normal(t *testing.T) {
 		return hx.None(), nil
 	})
 
-	h.doPost("/users/123", url.Values{
+	h.doMethod(http.MethodPost, "/users/123", url.Values{
 		"age":     {"81"},
 		"search":  {"hello02"},
 		"another": {"invalid"},
@@ -251,6 +290,54 @@ func TestHtmlPost_Normal(t *testing.T) {
 	// check input
 	assert.Equal(t, []htmlParams{
 		{ID: 123, Age: 81, Search: "hello02"},
+	}, inputParams)
+
+	// check output
+	assert.Equal(t, 200, h.writer.Code)
+	assert.Equal(t, "", h.writer.Body.String())
+}
+
+func TestHtmlPut__Normal(t *testing.T) {
+	h := newHtmlTest()
+
+	urlPath := urls.New[htmlParams]("/users/{id}")
+
+	var inputParams []htmlParams
+	HtmlPut(h.router, urlPath, func(ctx Context, params htmlParams) (hx.Elem, error) {
+		inputParams = append(inputParams, params)
+		return hx.None(), nil
+	})
+
+	h.doMethod(http.MethodPut, "/users/123", url.Values{
+		"age": {"81"},
+	})
+
+	// check input
+	assert.Equal(t, []htmlParams{
+		{ID: 123, Age: 81},
+	}, inputParams)
+
+	// check output
+	assert.Equal(t, 200, h.writer.Code)
+	assert.Equal(t, "", h.writer.Body.String())
+}
+
+func TestHtmlDelete_Normal(t *testing.T) {
+	h := newHtmlTest()
+
+	urlPath := urls.New[htmlParams]("/users/{id}")
+
+	var inputParams []htmlParams
+	HtmlDelete(h.router, urlPath, func(ctx Context, params htmlParams) (hx.Elem, error) {
+		inputParams = append(inputParams, params)
+		return hx.None(), nil
+	})
+
+	h.doMethod(http.MethodDelete, "/users/123?age=82", nil)
+
+	// check input
+	assert.Equal(t, []htmlParams{
+		{ID: 123, Age: 82},
 	}, inputParams)
 
 	// check output

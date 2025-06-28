@@ -1,6 +1,8 @@
 package router
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 )
 
@@ -11,12 +13,16 @@ type Router struct {
 
 func NewRouter() *Router {
 	router := chi.NewRouter()
-	return &Router{
+	r := &Router{
 		state: &routerState{
 			chi:        router,
 			registered: map[endpointKey]struct{}{},
 		},
 	}
+
+	r.state.handleHtmlError = r.DefaultHtmlErrorHandler
+
+	return r
 }
 
 func (r *Router) GetChi() *chi.Mux {
@@ -36,4 +42,6 @@ type routerState struct {
 	registered map[endpointKey]struct{}
 
 	finalHooks []Middleware
+
+	handleHtmlError func(err error, writer http.ResponseWriter)
 }

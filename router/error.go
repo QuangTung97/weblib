@@ -1,5 +1,10 @@
 package router
 
+import (
+	"encoding/json"
+	"net/http"
+)
+
 type HtmlErrorReason int
 
 const (
@@ -15,4 +20,18 @@ type HtmlError struct {
 
 func (e *HtmlError) Error() string {
 	return e.Message
+}
+
+func (r *Router) SetCustomHtmlErrorHandler(handler func(err error, writer http.ResponseWriter)) {
+	r.state.handleHtmlError = handler
+}
+
+func (r *Router) DefaultHtmlErrorHandler(err error, writer http.ResponseWriter) {
+	writer.WriteHeader(http.StatusBadRequest)
+	writer.Header().Set("Content-Type", "application/json")
+
+	enc := json.NewEncoder(writer)
+	_ = enc.Encode(errorMessage{
+		Error: err.Error(),
+	})
 }

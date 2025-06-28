@@ -1,7 +1,6 @@
 package router
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"slices"
@@ -106,7 +105,7 @@ func htmlMethod[T any](
 
 	router.state.chi.MethodFunc(method, urlPath.GetPattern(), func(writer http.ResponseWriter, req *http.Request) {
 		if err := stdHandlerError(writer, req); err != nil {
-			router.handleHtmlError(err, writer)
+			router.state.handleHtmlError(err, writer)
 		}
 	})
 }
@@ -123,16 +122,6 @@ func (r *Router) applyMiddlewares(handler GenericHandler) GenericHandler {
 	}
 
 	return handler
-}
-
-func (r *Router) handleHtmlError(err error, writer http.ResponseWriter) {
-	writer.WriteHeader(http.StatusBadRequest)
-	writer.Header().Set("Content-Type", "application/json")
-
-	enc := json.NewEncoder(writer)
-	_ = enc.Encode(errorMessage{
-		Error: err.Error(),
-	})
 }
 
 type errorMessage struct {
