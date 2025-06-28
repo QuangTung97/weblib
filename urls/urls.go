@@ -72,6 +72,78 @@ func (p Path[T]) Eval(params T) string {
 	return u.String()
 }
 
+func (p Path[T]) GetPathParams() []string {
+	var result []string
+	for param := range findPathParams(p.pattern) {
+		result = append(result, param.name)
+	}
+	return result
+}
+
+func (p Path[T]) GetNonPathParams() []string {
+	pathParamSet := map[string]struct{}{}
+	for param := range findPathParams(p.pattern) {
+		pathParamSet[param.name] = struct{}{}
+	}
+
+	var result []string
+	var emptyParams T
+	for jsonTag := range getAllJsonTags(emptyParams) {
+		_, existed := pathParamSet[jsonTag.name]
+		if existed {
+			continue
+		}
+		result = append(result, jsonTag.name)
+	}
+	return result
+}
+
+func SetStructWithValues(
+	obj any, updateFields []string,
+	valueFunc func(name string) string,
+) error {
+	updateSet := map[string]struct{}{}
+	for _, jsonTag := range updateFields {
+		updateSet[jsonTag] = struct{}{}
+	}
+
+	objValuePtr := reflect.ValueOf(obj)
+	if objValuePtr.Kind() != reflect.Ptr {
+		return fmt.Errorf("input object type '%s' must be a pointer instead", objValuePtr.Type().String())
+	}
+
+	objValue := objValuePtr.Elem()
+
+	for jsonTag := range getAllJsonTagsOfValue(objValue) {
+		if jsonTag.err != nil {
+			return jsonTag.err
+		}
+
+		_, ok := updateSet[jsonTag.name]
+		if !ok {
+			continue
+		}
+
+		valueStr := valueFunc(jsonTag.name)
+		if len(valueStr) == 0 {
+			continue
+		}
+
+		if ok := updateValueFromString(jsonTag.fieldValue, valueStr); !ok {
+			return fmt.Errorf(
+				"can not set value '%s' to field '%s' with type '%s'",
+				valueStr, jsonTag.name, jsonTag.fieldValue.Type().String(),
+			)
+		}
+	}
+
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// Internal Implementation
+// ---------------------------------------------------------------------------
+
 type pathParam struct {
 	name  string
 	begin int
@@ -118,10 +190,15 @@ type jsonTagValue struct {
 	value  string
 	isZero bool
 	err    error
+
+	fieldValue reflect.Value
 }
 
 func getAllJsonTags(obj any) iter.Seq[jsonTagValue] {
-	value := reflect.ValueOf(obj)
+	return getAllJsonTagsOfValue(reflect.ValueOf(obj))
+}
+
+func getAllJsonTagsOfValue(value reflect.Value) iter.Seq[jsonTagValue] {
 	valType := value.Type()
 
 	if valType.Kind() != reflect.Struct {
@@ -154,13 +231,14 @@ func getAllJsonTags(obj any) iter.Seq[jsonTagValue] {
 				)
 				yield(jsonTagValue{err: err})
 				return
-
 			}
 
 			tagVal := jsonTagValue{
 				name:   jsonTag,
 				value:  valueStr,
 				isZero: fieldVal.IsZero(),
+
+				fieldValue: fieldVal,
 			}
 
 			if !yield(tagVal) {
@@ -197,5 +275,51 @@ func reflectValueToString(val reflect.Value) (string, bool) {
 		}
 
 		return "null", true
+	}
+}
+
+func updateValueFromString(val reflect.Value, str string) bool {
+	switch val.Kind() {
+	case reflect.Bool:
+		b, err := strconv.ParseBool(str)
+		if err != nil {
+			return false
+		}
+		val.SetBool(b)
+		return true
+
+	case reflect.String:
+		val.SetString(str)
+		return true
+
+	case reflect.Int, reflect.Int8, reflect.Int16,
+		reflect.Int32, reflect.Int64:
+		num, err := strconv.ParseInt(str, 10, 64)
+		if err != nil {
+			return false
+		}
+		val.SetInt(num)
+		return true
+
+	case reflect.Uint, reflect.Uint8, reflect.Uint16,
+		reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		num, err := strconv.ParseUint(str, 10, 64)
+		if err != nil {
+			return false
+		}
+		val.SetUint(num)
+		return true
+
+	default:
+		output, ok := null.IsNullType(val)
+		if !ok {
+			return false
+		}
+
+		if ok := updateValueFromString(output.DataField, str); !ok {
+			return false
+		}
+		output.ValidField.SetBool(true)
+		return true
 	}
 }

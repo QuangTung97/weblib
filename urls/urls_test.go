@@ -1,6 +1,8 @@
 package urls
 
 import (
+	"errors"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -82,6 +84,8 @@ func TestPath_Eval(t *testing.T) {
 			Val: "test",
 		})
 		assert.Equal(t, "/users/0/members/test", newURL)
+		assert.Equal(t, []string{"id", "val"}, p.GetPathParams())
+		assert.Equal(t, []string{"name", "age"}, p.GetNonPathParams())
 	})
 }
 
@@ -150,7 +154,14 @@ func TestFindPathParams(t *testing.T) {
 }
 
 func getAllJsonTagsList(obj any) []jsonTagValue {
-	return slices.Collect(getAllJsonTags(obj))
+	result := slices.Collect(getAllJsonTags(obj))
+
+	// clear fieldValue
+	for i := range result {
+		result[i].fieldValue = reflect.Value{}
+	}
+
+	return result
 }
 
 func TestGetAllJSONTags(t *testing.T) {
@@ -168,6 +179,7 @@ func TestGetAllJSONTags(t *testing.T) {
 			Checked bool `json:"checked"`
 		}
 
+		// get all
 		result := getAllJsonTagsList(entity{
 			ID:    11,
 			Name:  "hello",
@@ -187,5 +199,163 @@ func TestGetAllJSONTags(t *testing.T) {
 			{name: "member_id", value: "null", isZero: true},
 			{name: "checked", value: "true"},
 		}, result)
+
+		// get with break
+		result = nil
+		for jsonTag := range getAllJsonTags(entity{}) {
+			jsonTag.fieldValue = reflect.Value{}
+			result = append(result, jsonTag)
+			break
+		}
+		assert.Equal(t, []jsonTagValue{
+			{name: "id", value: "0", isZero: true},
+		}, result)
+	})
+}
+
+func TestSetStructWithValues(t *testing.T) {
+	t.Run("normal", func(t *testing.T) {
+		var params testParams
+		values := map[string]string{
+			"id":   "123",
+			"name": "hello01",
+			"age":  "21",
+		}
+
+		err := SetStructWithValues(&params, []string{"id", "name"}, func(name string) string {
+			return values[name]
+		})
+		assert.Equal(t, nil, err)
+		assert.Equal(t, testParams{
+			ID:   123,
+			Name: "hello01",
+		}, params)
+	})
+
+	t.Run("normal, empty value", func(t *testing.T) {
+		var params testParams
+		err := SetStructWithValues(&params, []string{"id", "name"}, func(name string) string {
+			return ""
+		})
+		assert.Equal(t, nil, err)
+		assert.Equal(t, testParams{}, params)
+	})
+
+	t.Run("obj not a pointer", func(t *testing.T) {
+		var params testParams
+		err := SetStructWithValues(params, []string{"id", "name"}, func(name string) string {
+			return ""
+		})
+		assert.Equal(t, errors.New("input object type 'urls.testParams' must be a pointer instead"), err)
+		assert.Equal(t, testParams{}, params)
+	})
+
+	t.Run("missing json tag", func(t *testing.T) {
+		type invalidEntity struct {
+			ID int
+		}
+		var params invalidEntity
+		err := SetStructWithValues(&params, []string{"id", "name"}, func(name string) string {
+			return ""
+		})
+		assert.Equal(t, errors.New("missing json tag of field 'ID' in struct 'invalidEntity'"), err)
+		assert.Equal(t, invalidEntity{}, params)
+	})
+
+	t.Run("can not convert from string to int", func(t *testing.T) {
+		var params testParams
+		values := map[string]string{
+			"id": "123a",
+		}
+		err := SetStructWithValues(&params, []string{"id", "name"}, func(name string) string {
+			return values[name]
+		})
+		assert.Equal(t, errors.New("can not set value '123a' to field 'id' with type 'int'"), err)
+		assert.Equal(t, testParams{}, params)
+	})
+
+	t.Run("with boolean", func(t *testing.T) {
+		type Optional bool
+		type testEntity struct {
+			Checked Optional `json:"checked"`
+		}
+
+		var params testEntity
+		values := map[string]string{
+			"checked": "true",
+		}
+		// success
+		err := SetStructWithValues(&params, []string{"checked"}, func(name string) string {
+			return values[name]
+		})
+		assert.Equal(t, nil, err)
+		assert.Equal(t, testEntity{
+			Checked: true,
+		}, params)
+
+		// error
+		err = SetStructWithValues(&params, []string{"checked"}, func(name string) string {
+			return "xxx"
+		})
+		assert.Equal(t, errors.New("can not set value 'xxx' to field 'checked' with type 'urls.Optional'"), err)
+	})
+
+	t.Run("with uint64", func(t *testing.T) {
+		type testEntity struct {
+			Age uint64 `json:"age"`
+		}
+
+		var params testEntity
+		err := SetStructWithValues(&params, []string{"age"}, func(name string) string {
+			return "51"
+		})
+		assert.Equal(t, nil, err)
+		assert.Equal(t, testEntity{Age: 51}, params)
+
+		// error
+		err = SetStructWithValues(&params, []string{"age"}, func(name string) string {
+			return "xxx"
+		})
+		assert.Equal(t, errors.New("can not set value 'xxx' to field 'age' with type 'uint64'"), err)
+	})
+
+	t.Run("null int", func(t *testing.T) {
+		type testEntity struct {
+			Age null.Null[int] `json:"age"`
+		}
+
+		var params testEntity
+		err := SetStructWithValues(&params, []string{"age"}, func(name string) string {
+			return "51"
+		})
+		assert.Equal(t, nil, err)
+		assert.Equal(t, testEntity{Age: null.New(51)}, params)
+
+		// error
+		err = SetStructWithValues(&params, []string{"age"}, func(name string) string {
+			return "xxx"
+		})
+		assert.Equal(t, errors.New("can not set value 'xxx' to field 'age' with type 'null.Null[int]'"), err)
+
+		// set empty
+		params = testEntity{}
+		err = SetStructWithValues(&params, []string{"age"}, func(name string) string {
+			return ""
+		})
+		assert.Equal(t, nil, err)
+		assert.Equal(t, testEntity{}, params)
+	})
+
+	t.Run("invalid type", func(t *testing.T) {
+		type testEntity struct {
+			Age *int `json:"age"`
+		}
+
+		// error
+		var params testEntity
+		err := SetStructWithValues(&params, []string{"age"}, func(name string) string {
+			return "xxx"
+		})
+		assert.Equal(t, errors.New("not support type '*int' of field 'Age' in struct 'testEntity'"), err)
 	})
 }
