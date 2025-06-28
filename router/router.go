@@ -1,22 +1,20 @@
 package router
 
-import (
-	"context"
-	"net/http"
-)
-
 type Router struct {
 }
 
-type Context struct {
-	Request *http.Request
-	writer  http.ResponseWriter
+func NewRouter() *Router {
+	return &Router{}
 }
 
-func (c Context) Context() context.Context {
-	return c.Request.Context()
+// -------------------------------------------------------------------------
+// Internal Implementation
+// -------------------------------------------------------------------------
+
+type endpointKey struct {
+	method  string
+	pattern string
 }
-
-type GenericHandler = func(ctx Context, req any) (any, error)
-
-type Middleware func(handler GenericHandler) GenericHandler
+type routerState struct {
+	registered map[endpointKey]struct{}
+}
