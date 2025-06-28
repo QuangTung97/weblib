@@ -27,6 +27,10 @@ func (r *Router) SetCustomHtmlErrorHandler(handler func(err error, writer http.R
 }
 
 func (r *Router) DefaultHtmlErrorHandler(err error, writer http.ResponseWriter) {
+	type errorMessage struct {
+		Error string `json:"error"`
+	}
+
 	writer.WriteHeader(http.StatusBadRequest)
 	writer.Header().Set("Content-Type", "application/json")
 

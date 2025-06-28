@@ -73,7 +73,6 @@ func htmlMethod[T any](
 			"%s %s not satisfy url prefix '%s'",
 			method, pattern, router.urlPrefix,
 		))
-
 	}
 
 	// setup middlewares
@@ -145,8 +144,4 @@ func (r *Router) applyMiddlewares(handler GenericHandler) GenericHandler {
 	}
 
 	return handler
-}
-
-type errorMessage struct {
-	Error string `json:"error"`
 }
