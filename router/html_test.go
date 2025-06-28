@@ -1,6 +1,7 @@
 package router
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -77,6 +78,7 @@ func (h *htmlTest) doGet(getURL string) {
 type htmlParams struct {
 	ID     int    `json:"id"`
 	Search string `json:"search"`
+	Age    int64  `json:"age"`
 }
 
 func TestHtmlGet__Normal(t *testing.T) {
@@ -107,6 +109,11 @@ func TestHtmlGet__Normal(t *testing.T) {
 	assert.Equal(t, 200, h.writer.Code)
 	assert.Equal(t, `<div>Hello World</div>`, h.writer.Body.String())
 
+	// check headers
+	assert.Equal(t, http.Header{
+		"Content-Type": []string{"text/html; charset=utf-8"},
+	}, h.writer.Header())
+
 	// check actions
 	assert.Equal(t, []string{
 		"middleware01",
@@ -117,4 +124,95 @@ func TestHtmlGet__Normal(t *testing.T) {
 		"middleware02_end",
 		"middleware01_end",
 	}, h.actions)
+}
+
+func TestHtmlGet__Can_Not_Parse_Path_Param(t *testing.T) {
+	h := newHtmlTest()
+
+	h.addMiddlewares()
+
+	urlPath := urls.New[htmlParams]("/users/{id}")
+
+	var inputParams []htmlParams
+	HtmlGet(h.router, urlPath, func(ctx Context, params htmlParams) (hx.Elem, error) {
+		h.addAction("handler")
+		inputParams = append(inputParams, params)
+		return hx.Div(
+			hx.Text("Hello World"),
+		), nil
+	})
+
+	h.doGet("/users/invalid")
+
+	// check input
+	assert.Equal(t, []htmlParams(nil), inputParams)
+
+	// check output
+	assert.Equal(t, 400, h.writer.Code)
+	assert.Equal(t,
+		`{"error":"can not set value 'invalid' to field 'id' with type 'int'"}`+"\n",
+		h.writer.Body.String(),
+	)
+
+	// check headers
+	assert.Equal(t, http.Header{
+		"Content-Type": []string{"application/json"},
+	}, h.writer.Header())
+
+	// check actions
+	assert.Equal(t, []string(nil), h.actions)
+}
+
+func TestHtmlGet__Can_Not_Parse_Query_Param(t *testing.T) {
+	h := newHtmlTest()
+
+	urlPath := urls.New[htmlParams]("/users/{id}")
+
+	var inputParams []htmlParams
+	HtmlGet(h.router, urlPath, func(ctx Context, params htmlParams) (hx.Elem, error) {
+		h.addAction("handler")
+		inputParams = append(inputParams, params)
+		return hx.Div(
+			hx.Text("Hello World"),
+		), nil
+	})
+
+	h.doGet("/users/123?age=invalid02")
+
+	// check input
+	assert.Equal(t, []htmlParams(nil), inputParams)
+
+	// check output
+	assert.Equal(t, 400, h.writer.Code)
+	assert.Equal(t,
+		`{"error":"can not set value 'invalid02' to field 'age' with type 'int64'"}`+"\n",
+		h.writer.Body.String(),
+	)
+}
+
+func TestHtmlGet__Handler_Error(t *testing.T) {
+	h := newHtmlTest()
+
+	urlPath := urls.New[htmlParams]("/users/{id}")
+
+	var inputParams []htmlParams
+	HtmlGet(h.router, urlPath, func(ctx Context, params htmlParams) (hx.Elem, error) {
+		h.addAction("handler")
+		inputParams = append(inputParams, params)
+		return hx.None(), errors.New("handler error")
+	})
+
+	h.doGet("/users/123?age=81")
+
+	// check input
+	assert.Equal(t, []htmlParams{
+		{ID: 123, Age: 81},
+	}, inputParams)
+
+	// check output
+	assert.Equal(t, 400, h.writer.Code)
+	assert.Equal(t,
+		`{"error":"handler error"}`+"\n",
+		h.writer.Body.String(),
+	)
 }

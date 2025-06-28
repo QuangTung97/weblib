@@ -17,6 +17,15 @@ func HtmlGet[T any](
 	urlPath urls.Path[T],
 	handler func(ctx Context, params T) (hx.Elem, error),
 ) {
+	htmlMethod(router, http.MethodGet, urlPath, handler)
+}
+
+func htmlMethod[T any](
+	router *Router,
+	method string,
+	urlPath urls.Path[T],
+	handler func(ctx Context, params T) (hx.Elem, error),
+) {
 	genericHandler := func(ctx Context, req any) (any, error) {
 		resp, err := handler(ctx, req.(T))
 		return resp, err
@@ -24,45 +33,60 @@ func HtmlGet[T any](
 
 	genericHandler = router.applyMiddlewares(genericHandler)
 
-	router.state.chi.Get(urlPath.GetPattern(), func(writer http.ResponseWriter, req *http.Request) {
+	stdHandlerError := func(writer http.ResponseWriter, req *http.Request) error {
 		var params T
 		err := urls.SetStructWithValues(&params, urlPath.GetPathParams(), func(name string) string {
 			return chi.URLParam(req, name)
 		})
 		if err != nil {
-			router.handleHtmlError(err, writer)
-			return
+			return &HtmlError{
+				Reason:  ReasonBadPathParam,
+				Message: err.Error(),
+			}
 		}
 
 		if err := req.ParseForm(); err != nil {
-			router.handleHtmlError(err, writer)
-			return
+			return &HtmlError{
+				Reason:  ReasonBadFormParam,
+				Message: err.Error(),
+			}
 		}
 
 		err = urls.SetStructWithValues(&params, urlPath.GetNonPathParams(), func(name string) string {
 			return req.FormValue(name)
 		})
 		if err != nil {
-			router.handleHtmlError(err, writer)
-			return
+			return &HtmlError{
+				Reason:  ReasonBadFormParam,
+				Message: err.Error(),
+			}
 		}
 
 		// call handler
 		ctx := NewContext(writer, req)
 		resp, err := genericHandler(ctx, params)
 		if err != nil {
-			router.handleHtmlError(err, writer)
-			return
+			return err
 		}
 
 		outputElem, ok := resp.(hx.Elem)
 		if !ok {
 			err := fmt.Errorf("failed to convert response to hx.Elem")
-			router.handleHtmlError(err, writer)
-			return
+			return &HtmlError{
+				Reason:  ReasonBadResponseType,
+				Message: err.Error(),
+			}
 		}
 
+		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = outputElem.Render(writer)
+		return nil
+	}
+
+	router.state.chi.MethodFunc(method, urlPath.GetPattern(), func(writer http.ResponseWriter, req *http.Request) {
+		if err := stdHandlerError(writer, req); err != nil {
+			router.handleHtmlError(err, writer)
+		}
 	})
 }
 
@@ -82,6 +106,8 @@ func (r *Router) applyMiddlewares(handler GenericHandler) GenericHandler {
 
 func (r *Router) handleHtmlError(err error, writer http.ResponseWriter) {
 	writer.WriteHeader(http.StatusBadRequest)
+	writer.Header().Set("Content-Type", "application/json")
+
 	enc := json.NewEncoder(writer)
 	_ = enc.Encode(errorMessage{
 		Error: err.Error(),
