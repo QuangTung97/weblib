@@ -72,6 +72,10 @@ func (p Path[T]) Eval(params T) string {
 	return u.String()
 }
 
+func (p Path[T]) GetPattern() string {
+	return p.pattern
+}
+
 func (p Path[T]) GetPathParams() []string {
 	var result []string
 	for param := range findPathParams(p.pattern) {

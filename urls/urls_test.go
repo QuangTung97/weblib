@@ -84,6 +84,7 @@ func TestPath_Eval(t *testing.T) {
 			Val: "test",
 		})
 		assert.Equal(t, "/users/0/members/test", newURL)
+		assert.Equal(t, "/users/{id}/members/{val}", p.GetPattern())
 		assert.Equal(t, []string{"id", "val"}, p.GetPathParams())
 		assert.Equal(t, []string{"name", "age"}, p.GetNonPathParams())
 	})
