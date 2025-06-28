@@ -53,11 +53,22 @@ func htmlMethod[T any](
 	urlPath urls.Path[T],
 	handler func(ctx Context, params T) (hx.Elem, error),
 ) {
+	// check duplicate endpoint
+	key := endpointKey{
+		method:  method,
+		pattern: urlPath.GetPattern(),
+	}
+	_, existed := router.state.registered[key]
+	if existed {
+		panic(fmt.Sprintf("%s %s is already defined", method, urlPath.GetPattern()))
+	}
+	router.state.registered[key] = struct{}{}
+
+	// setup middlewares
 	genericHandler := func(ctx Context, req any) (any, error) {
 		resp, err := handler(ctx, req.(T))
 		return resp, err
 	}
-
 	genericHandler = router.applyMiddlewares(genericHandler)
 
 	stdHandlerError := func(writer http.ResponseWriter, req *http.Request) error {

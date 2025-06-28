@@ -344,3 +344,19 @@ func TestHtmlDelete_Normal(t *testing.T) {
 	assert.Equal(t, 200, h.writer.Code)
 	assert.Equal(t, "", h.writer.Body.String())
 }
+
+func TestHtmlGet__Multi__Duplicated_Pattern__Panic(t *testing.T) {
+	h := newHtmlTest()
+
+	urlPath := urls.New[htmlParams]("/users/{id}")
+
+	HtmlGet(h.router, urlPath, func(ctx Context, params htmlParams) (hx.Elem, error) {
+		return hx.None(), nil
+	})
+
+	assert.PanicsWithValue(t, "GET /users/{id} is already defined", func() {
+		HtmlGet(h.router, urlPath, func(ctx Context, params htmlParams) (hx.Elem, error) {
+			return hx.None(), nil
+		})
+	})
+}
