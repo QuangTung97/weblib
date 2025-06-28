@@ -11,7 +11,11 @@ import (
 	"github.com/QuangTung97/weblib/null"
 )
 
-func New[T any](pattern string) *Path[T] {
+type Path[T any] struct {
+	pattern string
+}
+
+func New[T any](pattern string) Path[T] {
 	var empty T
 
 	jsonTagSet := map[string]struct{}{}
@@ -30,13 +34,9 @@ func New[T any](pattern string) *Path[T] {
 		}
 	}
 
-	return &Path[T]{
+	return Path[T]{
 		pattern: pattern,
 	}
-}
-
-type Path[T any] struct {
-	pattern string
 }
 
 func (p Path[T]) Eval(params T) string {
