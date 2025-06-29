@@ -380,3 +380,27 @@ func TestHtmlGet__With_Group_Prefix__Not_Match__Panic(t *testing.T) {
 		})
 	})
 }
+
+func TestHtmlGet__With_Redirect(t *testing.T) {
+	h := newHtmlTest()
+
+	urlPath := urls.New[htmlParams]("/users/{id}")
+	HtmlGet(h.router, urlPath, func(ctx Context, params htmlParams) (hx.Elem, error) {
+		ctx.HttpRedirect("https://example.com")
+		return hx.Div(), nil
+	})
+
+	h.doGet("/users/123?search=test01")
+
+	// check output
+	assert.Equal(t, http.StatusTemporaryRedirect, h.writer.Code)
+	assert.Equal(t, `<a href="https://example.com">Temporary Redirect</a>.`+"\n\n", h.writer.Body.String())
+
+	// check headers
+	assert.Equal(t, http.Header{
+		"Content-Type": []string{"text/html; charset=utf-8"},
+		"Location": {
+			"https://example.com",
+		},
+	}, h.writer.Header())
+}

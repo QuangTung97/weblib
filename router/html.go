@@ -120,8 +120,11 @@ func htmlMethod[T any](
 			}
 		}
 
-		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_ = outputElem.Render(writer)
+		if !ctx.state.responded {
+			ctx.state.responded = true
+			writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_ = outputElem.Render(writer)
+		}
 		return nil
 	}
 

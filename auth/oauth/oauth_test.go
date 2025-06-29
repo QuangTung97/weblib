@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"encoding/base64"
+	"errors"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
+	"github.com/QuangTung97/weblib/router"
 	"github.com/QuangTung97/weblib/sliceutil"
 )
 
@@ -138,5 +140,82 @@ func TestService_HandleLogin(t *testing.T) {
 		assert.Equal(t, "http://localhost:8000/auth/google/callback", outputParams["redirect_uri"][0])
 		assert.Equal(t, "code", outputParams["response_type"][0])
 		assert.Equal(t, "https://www.googleapis.com/auth/userinfo.email", outputParams["scope"][0])
+	})
+}
+
+func TestService_HandleCallback(t *testing.T) {
+	t.Run("not found cookie", func(t *testing.T) {
+		s := newServiceTest()
+
+		req := httptest.NewRequest(http.MethodGet, "/oauth/callback", nil)
+		ctx := router.NewContext(s.writer, req)
+
+		_, err := s.svc.HandleCallback(ctx, CallbackParams{})
+		assert.Error(t, err)
+		assert.Equal(t, "invalid oauth login session: http: named cookie not present", err.Error())
+	})
+
+	t.Run("invalid state", func(t *testing.T) {
+		s := newServiceTest()
+
+		req := httptest.NewRequest(http.MethodGet, "/oauth/callback", nil)
+		req.AddCookie(&http.Cookie{
+			Name:  oauthLoginSessionCookie,
+			Value: "login-cookie-value",
+		})
+
+		ctx := router.NewContext(s.writer, req)
+
+		_, err := s.svc.HandleCallback(ctx, CallbackParams{
+			State: "invalid-base64",
+		})
+		assert.Error(t, err)
+		assert.Equal(t, "invalid base64 state: illegal base64 data at input byte 12", err.Error())
+	})
+
+	t.Run("success", func(t *testing.T) {
+		s := newServiceTest()
+
+		// construct input state
+		state := s.svc.generateStateOauthCookie(httptest.NewRecorder(), "/user/123")
+		req := httptest.NewRequest(http.MethodGet, "/oauth/callback", nil)
+		req.AddCookie(&http.Cookie{
+			Name:  oauthLoginSessionCookie,
+			Value: "cmFuZDAx",
+		})
+
+		ctx := router.NewContext(s.writer, req)
+
+		// do handle
+		_, err := s.svc.HandleCallback(ctx, CallbackParams{
+			State: state,
+		})
+		assert.Equal(t, nil, err)
+
+		// check header
+		assert.Equal(t, http.Header{
+			"Content-Type": {"text/html; charset=utf-8"},
+			"Location":     {"/user/123"},
+		}, s.writer.Header())
+	})
+
+	t.Run("mismatch cookie", func(t *testing.T) {
+		s := newServiceTest()
+
+		// construct input state
+		state := s.svc.generateStateOauthCookie(httptest.NewRecorder(), "/user/123")
+		req := httptest.NewRequest(http.MethodGet, "/oauth/callback", nil)
+		req.AddCookie(&http.Cookie{
+			Name:  oauthLoginSessionCookie,
+			Value: "cmFuZDAx-invalid",
+		})
+
+		ctx := router.NewContext(s.writer, req)
+
+		// do handle
+		_, err := s.svc.HandleCallback(ctx, CallbackParams{
+			State: state,
+		})
+		assert.Equal(t, errors.New("mismatch oauth callback state and login session"), err)
 	})
 }
