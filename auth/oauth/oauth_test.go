@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"maps"
@@ -23,6 +24,9 @@ type serviceTest struct {
 	randData   string
 	randInputs []int
 
+	exchangeCodes []string
+	accessTokens  []string
+
 	svc *serviceImpl
 
 	writer *httptest.ResponseRecorder
@@ -42,13 +46,19 @@ func newServiceTest() *serviceTest {
 	s.now = newTime("2025-06-28 10:20")
 	s.randData = "rand01"
 
+	conf := &oauth2.Config{
+		RedirectURL:  "http://localhost:8000/auth/google/callback",
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
+		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
+		Endpoint:     google.Endpoint,
+	}
+
 	s.svc = NewService(
-		&oauth2.Config{
-			RedirectURL:  "http://localhost:8000/auth/google/callback",
-			ClientID:     "test-client-id",
-			ClientSecret: "test-client-secret",
-			Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
-			Endpoint:     google.Endpoint,
+		conf,
+		func(ctx router.Context, accessToken string) error {
+			s.accessTokens = append(s.accessTokens, accessToken)
+			return nil
 		},
 		func() time.Time {
 			return s.now
@@ -58,6 +68,11 @@ func newServiceTest() *serviceTest {
 			return []byte(s.randData)
 		},
 	).(*serviceImpl)
+
+	s.svc.exchangeFunc = func(ctx context.Context, code string) (string, error) {
+		s.exchangeCodes = append(s.exchangeCodes, code)
+		return "new-access-token", nil
+	}
 
 	s.writer = httptest.NewRecorder()
 
@@ -189,8 +204,17 @@ func TestService_HandleCallback(t *testing.T) {
 		// do handle
 		_, err := s.svc.HandleCallback(ctx, CallbackParams{
 			State: state,
+			Code:  "input-exchange-code",
 		})
 		assert.Equal(t, nil, err)
+
+		// check exchange code & access token
+		assert.Equal(t, []string{
+			"input-exchange-code",
+		}, s.exchangeCodes)
+		assert.Equal(t, []string{
+			"new-access-token",
+		}, s.accessTokens)
 
 		// check header
 		assert.Equal(t, http.Header{

@@ -1,10 +1,12 @@
 package oauth
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -17,7 +19,7 @@ type Service interface {
 	HandleLogin(writer http.ResponseWriter, request *http.Request)
 	HandleCallback(ctx router.Context, params CallbackParams) (hx.Elem, error)
 
-	RedirectToLogin(ctx router.Context, backURL string)
+	RedirectToLogin(ctx router.Context, loginRegisterPath string, backURL string)
 }
 
 type CallbackParams struct {
@@ -25,21 +27,40 @@ type CallbackParams struct {
 	Code  string `json:"code"`
 }
 
+type SuccessCallback = func(ctx router.Context, accessToken string) error
+
 type serviceImpl struct {
 	authConfig *oauth2.Config
-	nowFunc    func() time.Time
-	randFunc   func(n int) []byte
+
+	exchangeFunc    func(ctx context.Context, code string) (string, error)
+	successCallback SuccessCallback
+
+	nowFunc  func() time.Time
+	randFunc func(n int) []byte
 }
 
 func NewService(
 	authConfig *oauth2.Config,
+	successCallback SuccessCallback,
 	nowFunc func() time.Time,
 	randFunc func(n int) []byte,
 ) Service {
+	exchangeFunc := func(ctx context.Context, code string) (string, error) {
+		exchangedToken, err := authConfig.Exchange(ctx, code)
+		if err != nil {
+			return "", fmt.Errorf("failed to code exchange: %w", err)
+		}
+		return exchangedToken.AccessToken, nil
+	}
+
 	return &serviceImpl{
 		authConfig: authConfig,
-		nowFunc:    nowFunc,
-		randFunc:   randFunc,
+
+		exchangeFunc:    exchangeFunc,
+		successCallback: successCallback,
+
+		nowFunc:  nowFunc,
+		randFunc: randFunc,
 	}
 }
 
@@ -70,8 +91,24 @@ func (s *serviceImpl) HandleCallback(ctx router.Context, params CallbackParams) 
 		return hx.None(), fmt.Errorf("mismatch oauth callback state and login session")
 	}
 
+	accessToken, err := s.exchangeFunc(ctx.Context(), params.Code)
+	if err != nil {
+		return hx.None(), err
+	}
+
+	if err := s.successCallback(ctx, accessToken); err != nil {
+		return hx.None(), err
+	}
+
 	ctx.HttpRedirect(state.RedirectURL)
 	return hx.None(), nil
+}
+
+func (s *serviceImpl) RedirectToLogin(ctx router.Context, loginRegisterPath string, backURL string) {
+	queryParams := url.Values{
+		"redirect": {backURL},
+	}
+	ctx.HttpRedirect(loginRegisterPath + "?" + queryParams.Encode())
 }
 
 const oauthLoginSessionCookie = "oauth_login_sess"
@@ -104,7 +141,4 @@ func (s *serviceImpl) generateStateOauthCookie(w http.ResponseWriter, redirectUR
 	}
 
 	return base64.URLEncoding.EncodeToString(data)
-}
-
-func (s *serviceImpl) RedirectToLogin(ctx router.Context, backURL string) {
 }
