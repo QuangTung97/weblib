@@ -44,6 +44,14 @@ func Div(children ...Elem) Elem {
 	return newNormalTag("div", children)
 }
 
+func A(children ...Elem) Elem {
+	return newNormalTag("a", children)
+}
+
+func Href(urlPath string) Elem {
+	return newUnsafeAttr("href", urlPath)
+}
+
 func Ul(children ...Elem) Elem {
 	return newNormalTag("ul", children)
 }
@@ -60,6 +68,14 @@ func newNormalAttr(name string, value string) Elem {
 		elemType: elemTypeAttribute,
 		name:     []byte(name),
 		value:    []byte(html.EscapeString(value)),
+	}
+}
+
+func newUnsafeAttr(name string, value string) Elem {
+	return Elem{
+		elemType: elemTypeAttribute,
+		name:     []byte(name),
+		value:    []byte(value),
 	}
 }
 

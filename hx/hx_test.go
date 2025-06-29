@@ -159,6 +159,14 @@ func TestElem_Render(t *testing.T) {
 	})
 }
 
+func TestElem_Basic(t *testing.T) {
+	t.Run("a tag", func(t *testing.T) {
+		assertXmlContent(t, `<a href="/user/login"></a>`, A(
+			Href("/user/login"),
+		))
+	})
+}
+
 type errorWriter struct {
 	data string
 }

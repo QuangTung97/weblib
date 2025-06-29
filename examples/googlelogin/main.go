@@ -41,6 +41,11 @@ func main() {
 	router.HtmlGet(rootRouter, homePath, func(ctx router.Context, params HomeParams) (hx.Elem, error) {
 		return hx.Div(
 			hx.Text("Hello World"),
+			hx.Br(),
+			hx.A(
+				hx.Text("Login with Google"),
+				hx.Href(oauthLoginPath),
+			),
 		), nil
 	})
 
