@@ -66,7 +66,7 @@ INSERT INTO schema_migration (
 ) VALUES (
     :id, :version, :filename, :is_dirty
 ) AS new
-ON DUPLICATED KEY UPDATE
+ON DUPLICATE KEY UPDATE
     version = new.version,
 	filename = new.filename,
 	is_dirty = new.is_dirty
