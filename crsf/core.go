@@ -73,7 +73,7 @@ func (g *Core) generateMessageWithRandData(sessionID string, randStr string) []b
 func (g *Core) Generate(sessionID string) string {
 	msgBytes, randStr := g.generateBeforeDigest(sessionID)
 	hashBytes := g.computeHMAC(msgBytes)
-	return base64.StdEncoding.EncodeToString(hashBytes) + "." + randStr
+	return base64.URLEncoding.EncodeToString(hashBytes) + "." + randStr
 }
 
 func (g *Core) computeHMAC(msgBytes []byte) []byte {
@@ -91,7 +91,7 @@ func (g *Core) Validate(sessionID string, csrfToken string) error {
 	digestPart := parts[0]
 	randStr := parts[1]
 
-	inputDigest, err := base64.StdEncoding.DecodeString(digestPart)
+	inputDigest, err := base64.URLEncoding.DecodeString(digestPart)
 	if err != nil {
 		return err
 	}
