@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -98,7 +99,13 @@ func doMigrateUp(
 		files = files[lastVersion:]
 	}
 
+	if len(files) == 0 {
+		slog.Info("No migration is run")
+	}
+
 	for index, file := range files {
+		slog.Info("Run migration script", slog.String("script", file.filename))
+
 		row := SchemaMigration{
 			ID:       1,
 			Version:  file.version,

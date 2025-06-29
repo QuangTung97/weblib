@@ -54,8 +54,22 @@ INSERT INTO schema_migration (
 ) VALUES (
     :id, :version, :filename, :is_dirty
 )
-ON CONFLICT (id) DO UPDATE
-	SET is_dirty = EXCLUDED.is_dirty
+ON CONFLICT (id) DO UPDATE SET
+	version = EXCLUDED.version,
+	filename = EXCLUDED.filename,
+	is_dirty = EXCLUDED.is_dirty
+`
+
+const MySQLUpsertRowQuery = `
+INSERT INTO schema_migration (
+    id, version, filename, is_dirty
+) VALUES (
+    :id, :version, :filename, :is_dirty
+) AS new
+ON DUPLICATED KEY UPDATE
+    version = new.version,
+	filename = new.filename,
+	is_dirty = new.is_dirty
 `
 
 func upsertRowFunc(db *sqlx.DB, dbType DatabaseType, row SchemaMigration) error {
@@ -63,7 +77,9 @@ func upsertRowFunc(db *sqlx.DB, dbType DatabaseType, row SchemaMigration) error 
 
 	switch dbType {
 	case DatabaseSQLite3:
-		query = SQLiteCreateTableQuery
+		query = SQLite3UpsertRowQuery
+	case DatabaseMySQL:
+		query = MySQLUpsertRowQuery
 	default:
 		return fmt.Errorf("unsupported database type: %v", dbType)
 	}
