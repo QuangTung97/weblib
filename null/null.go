@@ -2,8 +2,11 @@ package null
 
 import (
 	"bytes"
+	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"reflect"
+	"time"
 )
 
 // Null for representing nullable value, is a better replacement for pointer
@@ -60,6 +63,60 @@ func (n *Null[T]) UnmarshalJSON(data []byte) error {
 
 	n.Valid = true
 	return nil
+}
+
+func (n Null[T]) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+
+	val := reflect.ValueOf(n.Data)
+
+	switch val.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16,
+		reflect.Int32, reflect.Int64:
+		return val.Int(), nil
+
+	case reflect.Uint, reflect.Uint8, reflect.Uint16,
+		reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return int64(val.Uint()), nil
+
+	case reflect.Float32, reflect.Float64:
+		return val.Float(), nil
+
+	case reflect.String:
+		return val.String(), nil
+
+	case reflect.Bool:
+		return val.Bool(), nil
+
+	default:
+		valType := val.Type()
+
+		// implement driver.Valuer interface
+		dataInterface := any(n.Data)
+		if valuer, ok := dataInterface.(driver.Valuer); ok {
+			return valuer.Value()
+		}
+
+		// check is time type
+		var emptyTime time.Time
+		timeType := reflect.TypeOf(emptyTime)
+		if valType.ConvertibleTo(timeType) {
+			timeVal := val.Convert(timeType)
+			return timeVal.Interface().(time.Time), nil
+		}
+
+		// check is byte slice
+		var emptySlice []byte
+		sliceType := reflect.TypeOf(emptySlice)
+		if valType.ConvertibleTo(sliceType) {
+			sliceVal := val.Convert(sliceType)
+			return sliceVal.Interface().([]byte), nil
+		}
+
+		return nil, fmt.Errorf("unsupported sql value for null.Null[%s] type", val.Type().String())
+	}
 }
 
 type CheckNullOutput struct {
