@@ -119,6 +119,69 @@ func (n Null[T]) Value() (driver.Value, error) {
 	}
 }
 
+func (n *Null[T]) Scan(inputValue interface{}) error {
+	if inputValue == nil {
+		n.Valid = false
+		var empty T
+		n.Data = empty
+		return nil
+	}
+
+	var dataContent T
+	dataVal := reflect.ValueOf(&dataContent).Elem()
+
+	genericError := fmt.Errorf(
+		"failed to scan type '%s' into null.Null[%s]",
+		reflect.TypeOf(inputValue).String(),
+		dataVal.Type().String(),
+	)
+
+	switch x := inputValue.(type) {
+	case int64:
+		if err := scanInt64ToData(dataVal, x, genericError); err != nil {
+			return err
+		}
+
+	case string:
+		if err := scanStringToData(dataVal, x, genericError); err != nil {
+			return err
+		}
+
+	default:
+		return genericError
+	}
+
+	n.Valid = true
+	n.Data = dataContent
+	return nil
+}
+
+func scanInt64ToData(dataVal reflect.Value, x int64, genericErr error) error {
+	switch dataVal.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16,
+		reflect.Int32, reflect.Int64:
+		dataVal.SetInt(x)
+		if dataVal.Int() != x {
+			return fmt.Errorf("lost precision when scan null.Null[%s]", dataVal.Type().String())
+		}
+		return nil
+
+	default:
+		return genericErr
+	}
+}
+
+func scanStringToData(dataVal reflect.Value, x string, genericErr error) error {
+	switch dataVal.Kind() {
+	case reflect.String:
+		dataVal.SetString(x)
+		return nil
+
+	default:
+		return genericErr
+	}
+}
+
 type CheckNullOutput struct {
 	NonNull    bool
 	ValidField reflect.Value

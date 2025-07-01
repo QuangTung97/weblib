@@ -220,3 +220,52 @@ func TestNull_Value(t *testing.T) {
 		assert.Equal(t, int64(21), val)
 	})
 }
+
+func TestNull_Scan(t *testing.T) {
+	t.Run("nil", func(t *testing.T) {
+		var x Null[int64]
+		err := x.Scan(nil)
+		assert.Equal(t, nil, err)
+		assert.Equal(t, Null[int64]{}, x)
+	})
+
+	t.Run("int64", func(t *testing.T) {
+		var x Null[int64]
+
+		err := x.Scan(int64(300))
+		assert.Equal(t, nil, err)
+		assert.Equal(t, New[int64](300), x)
+
+		// string into int64
+		err = x.Scan("hello")
+		assert.Equal(t, errors.New("failed to scan type 'string' into null.Null[int64]"), err)
+	})
+
+	t.Run("int8", func(t *testing.T) {
+		var x Null[int8]
+
+		// scan ok
+		err := x.Scan(int64(30))
+		assert.Equal(t, nil, err)
+		assert.Equal(t, New[int8](30), x)
+
+		// scan error
+		x = Null[int8]{}
+		err = x.Scan(int64(300))
+		assert.Equal(t, errors.New("lost precision when scan null.Null[int8]"), err)
+		assert.Equal(t, Null[int8]{}, x)
+	})
+
+	t.Run("string", func(t *testing.T) {
+		var x Null[string]
+
+		// ok
+		err := x.Scan("hello")
+		assert.Equal(t, nil, err)
+		assert.Equal(t, New("hello"), x)
+
+		// error
+		err = x.Scan(int64(300))
+		assert.Equal(t, errors.New("failed to scan type 'int64' into null.Null[string]"), err)
+	})
+}
