@@ -268,4 +268,14 @@ func TestNull_Scan(t *testing.T) {
 		err = x.Scan(int64(300))
 		assert.Equal(t, errors.New("failed to scan type 'int64' into null.Null[string]"), err)
 	})
+
+	t.Run("time", func(t *testing.T) {
+		type customType time.Time
+		var x Null[customType]
+
+		now := time.Now()
+		err := x.Scan(now)
+		assert.Equal(t, nil, err)
+		assert.Equal(t, New(customType(now)), x)
+	})
 }

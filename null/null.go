@@ -72,51 +72,45 @@ func (n Null[T]) Value() (driver.Value, error) {
 
 	val := reflect.ValueOf(n.Data)
 
-	switch val.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16,
-		reflect.Int32, reflect.Int64:
+	if val.CanInt() {
 		return val.Int(), nil
-
-	case reflect.Uint, reflect.Uint8, reflect.Uint16,
-		reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return int64(val.Uint()), nil
-
-	case reflect.Float32, reflect.Float64:
-		return val.Float(), nil
-
-	case reflect.String:
-		return val.String(), nil
-
-	case reflect.Bool:
-		return val.Bool(), nil
-
-	default:
-		valType := val.Type()
-
-		// implement driver.Valuer interface
-		dataInterface := any(n.Data)
-		if valuer, ok := dataInterface.(driver.Valuer); ok {
-			return valuer.Value()
-		}
-
-		// check is time type
-		var emptyTime time.Time
-		timeType := reflect.TypeOf(emptyTime)
-		if valType.ConvertibleTo(timeType) {
-			timeVal := val.Convert(timeType)
-			return timeVal.Interface().(time.Time), nil
-		}
-
-		// check is byte slice
-		var emptySlice []byte
-		sliceType := reflect.TypeOf(emptySlice)
-		if valType.ConvertibleTo(sliceType) {
-			sliceVal := val.Convert(sliceType)
-			return sliceVal.Interface().([]byte), nil
-		}
-
-		return nil, fmt.Errorf("unsupported sql value for null.Null[%s] type", val.Type().String())
 	}
+	if val.CanUint() {
+		return int64(val.Uint()), nil
+	}
+	if val.CanFloat() {
+		return val.Float(), nil
+	}
+	if val.Kind() == reflect.String {
+		return val.String(), nil
+	}
+	if val.Kind() == reflect.Bool {
+		return val.Bool(), nil
+	}
+
+	// implement driver.Valuer interface
+	dataInterface := any(n.Data)
+	if valuer, ok := dataInterface.(driver.Valuer); ok {
+		return valuer.Value()
+	}
+
+	// check is time type
+	var emptyTime time.Time
+	timeType := reflect.TypeOf(emptyTime)
+	if val.CanConvert(timeType) {
+		timeVal := val.Convert(timeType)
+		return timeVal.Interface().(time.Time), nil
+	}
+
+	// check is byte slice
+	var emptySlice []byte
+	sliceType := reflect.TypeOf(emptySlice)
+	if val.CanConvert(sliceType) {
+		sliceVal := val.Convert(sliceType)
+		return sliceVal.Interface().([]byte), nil
+	}
+
+	return nil, fmt.Errorf("unsupported sql value for null.Null[%s] type", val.Type().String())
 }
 
 func (n *Null[T]) Scan(inputValue interface{}) error {
@@ -147,7 +141,13 @@ func (n *Null[T]) Scan(inputValue interface{}) error {
 			return err
 		}
 
+	case time.Time:
+		if err := scanTimeToData(dataVal, x, genericError); err != nil {
+			return err
+		}
+
 	default:
+
 		return genericError
 	}
 
@@ -157,29 +157,36 @@ func (n *Null[T]) Scan(inputValue interface{}) error {
 }
 
 func scanInt64ToData(dataVal reflect.Value, x int64, genericErr error) error {
-	switch dataVal.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16,
-		reflect.Int32, reflect.Int64:
-		dataVal.SetInt(x)
-		if dataVal.Int() != x {
-			return fmt.Errorf("lost precision when scan null.Null[%s]", dataVal.Type().String())
-		}
-		return nil
-
-	default:
+	if !dataVal.CanInt() {
 		return genericErr
 	}
+
+	dataVal.SetInt(x)
+	if dataVal.Int() != x {
+		return fmt.Errorf("lost precision when scan null.Null[%s]", dataVal.Type().String())
+	}
+	return nil
 }
 
 func scanStringToData(dataVal reflect.Value, x string, genericErr error) error {
-	switch dataVal.Kind() {
-	case reflect.String:
-		dataVal.SetString(x)
-		return nil
-
-	default:
+	if dataVal.Kind() != reflect.String {
 		return genericErr
 	}
+
+	dataVal.SetString(x)
+	return nil
+}
+
+func scanTimeToData(dataVal reflect.Value, x time.Time, genericErr error) error {
+	dataType := dataVal.Type()
+	inputVal := reflect.ValueOf(x)
+
+	if !inputVal.CanConvert(dataType) {
+		return genericErr
+	}
+
+	dataVal.Set(inputVal.Convert(dataType))
+	return nil
 }
 
 type CheckNullOutput struct {
