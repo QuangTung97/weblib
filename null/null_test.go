@@ -274,8 +274,44 @@ func TestNull_Scan(t *testing.T) {
 		var x Null[customType]
 
 		now := time.Now()
+
+		// ok
 		err := x.Scan(now)
 		assert.Equal(t, nil, err)
 		assert.Equal(t, New(customType(now)), x)
+
+		// error
+		var y Null[string]
+		err = y.Scan(now)
+		assert.Equal(t, errors.New("failed to scan type 'time.Time' into null.Null[string]"), err)
+	})
+
+	t.Run("slice", func(t *testing.T) {
+		type customType []byte
+		var x Null[customType]
+
+		// ok
+		err := x.Scan([]byte("hello"))
+		assert.Equal(t, nil, err)
+		assert.Equal(t, New(customType("hello")), x)
+
+		// error
+		var y Null[int64]
+		err = y.Scan([]byte("hello"))
+		assert.Equal(t, errors.New("failed to scan type '[]uint8' into null.Null[int64]"), err)
+	})
+
+	t.Run("uint64", func(t *testing.T) {
+		var x Null[uint64]
+
+		// ok
+		err := x.Scan(int64(300))
+		assert.Equal(t, nil, err)
+		assert.Equal(t, New[uint64](300), x)
+
+		// error
+		var y Null[uint8]
+		err = y.Scan(int64(300))
+		assert.Equal(t, errors.New("lost precision when scan null.Null[uint8]"), err)
 	})
 }

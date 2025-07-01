@@ -2,6 +2,7 @@ package null
 
 import (
 	"bytes"
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -130,6 +131,12 @@ func (n *Null[T]) Scan(inputValue interface{}) error {
 		dataVal.Type().String(),
 	)
 
+	dataInterface := any(dataContent)
+	if scanner, ok := dataInterface.(sql.Scanner); ok {
+		// TODO testing
+		return scanner.Scan(inputValue)
+	}
+
 	switch x := inputValue.(type) {
 	case int64:
 		if err := scanInt64ToData(dataVal, x, genericError); err != nil {
@@ -146,8 +153,14 @@ func (n *Null[T]) Scan(inputValue interface{}) error {
 			return err
 		}
 
-	default:
+	case []byte:
+		if err := scanSliceToData(dataVal, x, genericError); err != nil {
+			return err
+		}
 
+		// TODO add float64 and bool
+
+	default:
 		return genericError
 	}
 
@@ -157,15 +170,26 @@ func (n *Null[T]) Scan(inputValue interface{}) error {
 }
 
 func scanInt64ToData(dataVal reflect.Value, x int64, genericErr error) error {
-	if !dataVal.CanInt() {
-		return genericErr
+	lostPrecisionErr := fmt.Errorf("lost precision when scan null.Null[%s]", dataVal.Type().String())
+
+	if dataVal.CanInt() {
+		dataVal.SetInt(x)
+		if dataVal.Int() != x {
+			return lostPrecisionErr
+		}
+		return nil
 	}
 
-	dataVal.SetInt(x)
-	if dataVal.Int() != x {
-		return fmt.Errorf("lost precision when scan null.Null[%s]", dataVal.Type().String())
+	if dataVal.CanUint() {
+		dataVal.SetUint(uint64(x))
+		if dataVal.Uint() != uint64(x) {
+			return lostPrecisionErr
+		}
+		return nil
+
 	}
-	return nil
+
+	return genericErr
 }
 
 func scanStringToData(dataVal reflect.Value, x string, genericErr error) error {
@@ -178,6 +202,18 @@ func scanStringToData(dataVal reflect.Value, x string, genericErr error) error {
 }
 
 func scanTimeToData(dataVal reflect.Value, x time.Time, genericErr error) error {
+	dataType := dataVal.Type()
+	inputVal := reflect.ValueOf(x)
+
+	if !inputVal.CanConvert(dataType) {
+		return genericErr
+	}
+
+	dataVal.Set(inputVal.Convert(dataType))
+	return nil
+}
+
+func scanSliceToData(dataVal reflect.Value, x []byte, genericErr error) error {
 	dataType := dataVal.Type()
 	inputVal := reflect.ValueOf(x)
 
