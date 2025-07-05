@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -139,6 +140,15 @@ func (v customValue) Value() (driver.Value, error) {
 	return v.data, nil
 }
 
+func (v *customValue) Scan(src any) error {
+	srcVal := reflect.ValueOf(src)
+	if srcVal.Kind() != reflect.Int64 {
+		return fmt.Errorf("invalid source type")
+	}
+	v.data = srcVal.Int()
+	return nil
+}
+
 func TestNull_Value(t *testing.T) {
 	t.Run("int64", func(t *testing.T) {
 		// normal
@@ -269,6 +279,42 @@ func TestNull_Scan(t *testing.T) {
 		assert.Equal(t, errors.New("failed to scan type 'int64' into null.Null[string]"), err)
 	})
 
+	t.Run("float64", func(t *testing.T) {
+		var x Null[float64]
+
+		// ok
+		err := x.Scan(300.5)
+		assert.Equal(t, nil, err)
+		assert.Equal(t, New(300.5), x)
+
+		// error
+		var y Null[string]
+		err = y.Scan(300.5)
+		assert.Equal(t, errors.New("failed to scan type 'float64' into null.Null[string]"), err)
+	})
+
+	t.Run("bool", func(t *testing.T) {
+		var x Null[bool]
+
+		// ok
+		err := x.Scan(true)
+		assert.Equal(t, nil, err)
+		assert.Equal(t, New(true), x)
+
+		// error
+		var y Null[string]
+		err = y.Scan(true)
+		assert.Equal(t, errors.New("failed to scan type 'bool' into null.Null[string]"), err)
+	})
+
+	t.Run("unknown type", func(t *testing.T) {
+		var x Null[int]
+
+		// error
+		err := x.Scan(int8(12))
+		assert.Equal(t, errors.New("failed to scan type 'int8' into null.Null[int]"), err)
+	})
+
 	t.Run("time", func(t *testing.T) {
 		type customType time.Time
 		var x Null[customType]
@@ -313,5 +359,19 @@ func TestNull_Scan(t *testing.T) {
 		var y Null[uint8]
 		err = y.Scan(int64(300))
 		assert.Equal(t, errors.New("lost precision when scan null.Null[uint8]"), err)
+	})
+
+	t.Run("custom type", func(t *testing.T) {
+		var x Null[customValue]
+
+		// ok
+		err := x.Scan(int64(828))
+		assert.Equal(t, nil, err)
+		assert.Equal(t, true, x.Valid)
+		assert.Equal(t, int64(828), x.Data.data)
+
+		// error
+		err = x.Scan("invalid")
+		assert.Equal(t, errors.New("invalid source type"), err)
 	})
 }

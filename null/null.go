@@ -131,10 +131,14 @@ func (n *Null[T]) Scan(inputValue interface{}) error {
 		dataVal.Type().String(),
 	)
 
-	dataInterface := any(dataContent)
+	dataInterface := any(&dataContent)
 	if scanner, ok := dataInterface.(sql.Scanner); ok {
-		// TODO testing
-		return scanner.Scan(inputValue)
+		if err := scanner.Scan(inputValue); err != nil {
+			return err
+		}
+		n.Valid = true
+		n.Data = dataContent
+		return nil
 	}
 
 	switch x := inputValue.(type) {
@@ -158,7 +162,15 @@ func (n *Null[T]) Scan(inputValue interface{}) error {
 			return err
 		}
 
-		// TODO add float64 and bool
+	case float64:
+		if err := scanFloat64ToData(dataVal, x, genericError); err != nil {
+			return err
+		}
+
+	case bool:
+		if err := scanBoolToData(dataVal, x, genericError); err != nil {
+			return err
+		}
 
 	default:
 		return genericError
@@ -222,6 +234,22 @@ func scanSliceToData(dataVal reflect.Value, x []byte, genericErr error) error {
 	}
 
 	dataVal.Set(inputVal.Convert(dataType))
+	return nil
+}
+
+func scanFloat64ToData(dataVal reflect.Value, x float64, genericErr error) error {
+	if !dataVal.CanFloat() {
+		return genericErr
+	}
+	dataVal.SetFloat(x)
+	return nil
+}
+
+func scanBoolToData(dataVal reflect.Value, x bool, genericErr error) error {
+	if dataVal.Kind() != reflect.Bool {
+		return genericErr
+	}
+	dataVal.SetBool(x)
 	return nil
 }
 
