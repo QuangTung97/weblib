@@ -88,6 +88,15 @@ func TestPath_Eval(t *testing.T) {
 		assert.Equal(t, []string{"id", "val"}, p.GetPathParams())
 		assert.Equal(t, []string{"name", "age"}, p.GetNonPathParams())
 	})
+
+	t.Run("with no param", func(t *testing.T) {
+		p := New[testParams]("/login")
+		newURL := p.Eval(testParams{
+			ID:   11,
+			Name: "hello",
+		})
+		assert.Equal(t, "/login?id=11&name=hello", newURL)
+	})
 }
 
 func findPathParamsList(pattern string) []pathParam {

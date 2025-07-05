@@ -1,57 +1,62 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
 	"github.com/QuangTung97/weblib/auth/oauth"
+	"github.com/QuangTung97/weblib/examples/googlelogin/simple"
 	"github.com/QuangTung97/weblib/hx"
 	"github.com/QuangTung97/weblib/router"
-	"github.com/QuangTung97/weblib/urls"
 )
-
-const oauthLoginPath = "/oauth/login"
-
-var loginPath = urls.New[oauth.LoginParams]("/login")
-
-var oauthCallbackPath = urls.New[oauth.CallbackParams]("/oauth/callback")
-
-type HomeParams struct {
-}
-
-var homePath = urls.New[HomeParams]("/")
 
 func main() {
 	rootRouter := router.NewRouter()
 
+	clientFile := simple.LoadGoogleClient("data/google_client.json")
+
 	oauthConf := &oauth2.Config{
-		RedirectURL:  "http://localhost:8080/auth/google/callback",
-		ClientID:     os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
-		ClientSecret: os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET"),
+		RedirectURL:  clientFile.Web.RedirectURIs[0],
+		ClientID:     clientFile.Web.ClientID,
+		ClientSecret: clientFile.Web.ClientSecret,
 		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 		Endpoint:     google.Endpoint,
 	}
-	oauthSvc := oauth.InitService(oauthConf, oauth.GoogleSuccessCallback())
+
+	callbackHandler := func(ctx router.Context, account oauth.GoogleAccount) error {
+		fmt.Printf("HELLO: %+v\n", account)
+		return nil
+	}
+
+	oauthSvc := oauth.InitService(
+		oauthConf,
+		oauth.GoogleCallback(callbackHandler),
+	)
 
 	// setup url paths
-	router.HtmlGet(rootRouter, loginPath, oauthSvc.HandleLogin)
-	router.HtmlGet(rootRouter, oauthCallbackPath, oauthSvc.HandleCallback)
+	router.HtmlGet(rootRouter, simple.LoginPath, oauthSvc.HandleLogin)
+	router.HtmlGet(rootRouter, simple.OauthCallbackPath, oauthSvc.HandleCallback)
 
 	// setup home page
-	router.HtmlGet(rootRouter, homePath, func(ctx router.Context, params HomeParams) (hx.Elem, error) {
+	homeHandler := func(ctx router.Context, params simple.HomeParams) (hx.Elem, error) {
+		loginPath := simple.LoginPath.Eval(oauth.LoginParams{
+			Redirect: "/",
+		})
+
 		return hx.Div(
 			hx.Text("Hello World"),
 			hx.Br(),
 			hx.A(
 				hx.Text("Login with Google"),
-				hx.Href(oauthLoginPath),
+				hx.Href(loginPath),
 			),
 		), nil
-	})
+	}
+	router.HtmlGet(rootRouter, simple.HomePath, homeHandler)
 
 	slog.Info("Start listen on port :8080")
 	if err := http.ListenAndServe(":8080", rootRouter.GetChi()); err != nil {

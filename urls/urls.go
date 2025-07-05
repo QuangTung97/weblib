@@ -57,6 +57,9 @@ func (p Path[T]) Eval(params T) string {
 		lastIndex = param.end
 	}
 
+	// write the last part
+	buf.WriteString(p.pattern[lastIndex:])
+
 	queryParams := url.Values{}
 	for _, jsonTag := range jsonTagMap {
 		if jsonTag.isZero {

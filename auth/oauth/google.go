@@ -1,8 +1,8 @@
 package oauth
 
 import (
+	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/QuangTung97/weblib/router"
@@ -10,7 +10,16 @@ import (
 
 const oauthGoogleUrlAPI = "https://www.googleapis.com/oauth2/v2/userinfo?access_token="
 
-func GoogleSuccessCallback() SuccessCallback {
+type GoogleAccount struct {
+	ID            string `json:"id"`
+	Email         string `json:"email"`
+	VerifiedEmail bool   `json:"verified_email"`
+	Picture       string `json:"picture"`
+}
+
+func GoogleCallback(
+	onHandler func(ctx router.Context, account GoogleAccount) error,
+) SuccessCallback {
 	return func(ctx router.Context, accessToken string) error {
 		resp, err := http.Get(oauthGoogleUrlAPI + accessToken)
 		if err != nil {
@@ -18,13 +27,11 @@ func GoogleSuccessCallback() SuccessCallback {
 		}
 		defer func() { _ = resp.Body.Close() }()
 
-		data, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("failed reading user info: %w", err)
+		var account GoogleAccount
+		if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
+			return fmt.Errorf("failed decoding user info: %w", err)
 		}
 
-		// TODO handle
-		fmt.Println(string(data))
-		return nil
+		return onHandler(ctx, account)
 	}
 }
