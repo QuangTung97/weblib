@@ -103,14 +103,13 @@ func TestService_HandleLogin(t *testing.T) {
 	t.Run("handle login", func(t *testing.T) {
 		s := newServiceTest()
 
-		queryParams := url.Values{
-			"redirect": {"/user/123"},
-		}
-		req := httptest.NewRequest(
-			http.MethodGet, "/oauth/login?"+queryParams.Encode(), nil,
-		)
+		req := httptest.NewRequest(http.MethodGet, "/oauth/login", nil)
+
+		ctx := router.NewContext(s.writer, req)
+
 		// do handle login
-		s.svc.HandleLogin(s.writer, req)
+		_, err := s.svc.HandleLogin(ctx, LoginParams{Redirect: "/user/123"})
+		assert.Equal(t, nil, err)
 
 		// check header
 		checkHeader := maps.Clone(s.writer.Header())

@@ -172,7 +172,6 @@ func TestProvider__Transact__Panic_Inside(t *testing.T) {
 	err := provider.Transact(context.Background(), func(ctx context.Context) error {
 		insertAuthUser(ctx, &user01)
 		panic("some value")
-		return nil
 	})
 	assert.Equal(t, errors.New("panic: some value"), err)
 

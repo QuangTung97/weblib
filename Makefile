@@ -3,6 +3,7 @@ SHELL := /bin/bash
 .PHONY: lint
 lint:
 	go fmt ./...
+	go vet ./...
 
 .PHONY: test
 test:

@@ -23,6 +23,7 @@ func GoogleSuccessCallback() SuccessCallback {
 			return fmt.Errorf("failed reading user info: %w", err)
 		}
 
+		// TODO handle
 		fmt.Println(string(data))
 		return nil
 	}

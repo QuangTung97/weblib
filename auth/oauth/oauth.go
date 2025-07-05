@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -16,10 +15,12 @@ import (
 )
 
 type Service interface {
-	HandleLogin(writer http.ResponseWriter, request *http.Request)
+	HandleLogin(ctx router.Context, params LoginParams) (hx.Elem, error)
 	HandleCallback(ctx router.Context, params CallbackParams) (hx.Elem, error)
+}
 
-	RedirectToLogin(ctx router.Context, loginRegisterPath string, backURL string)
+type LoginParams struct {
+	Redirect string `json:"redirect"`
 }
 
 type CallbackParams struct {
@@ -64,11 +65,12 @@ func NewService(
 	}
 }
 
-func (s *serviceImpl) HandleLogin(writer http.ResponseWriter, request *http.Request) {
-	state := s.generateStateOauthCookie(writer, request.URL.Query().Get("redirect"))
+func (s *serviceImpl) HandleLogin(ctx router.Context, params LoginParams) (hx.Elem, error) {
+	state := s.generateStateOauthCookie(ctx.GetWriter(), params.Redirect)
 
 	redirectURL := s.authConfig.AuthCodeURL(state)
-	http.Redirect(writer, request, redirectURL, http.StatusTemporaryRedirect)
+	ctx.HttpRedirect(redirectURL)
+	return hx.None(), nil
 }
 
 func (s *serviceImpl) HandleCallback(ctx router.Context, params CallbackParams) (hx.Elem, error) {
@@ -102,13 +104,6 @@ func (s *serviceImpl) HandleCallback(ctx router.Context, params CallbackParams) 
 
 	ctx.HttpRedirect(state.RedirectURL)
 	return hx.None(), nil
-}
-
-func (s *serviceImpl) RedirectToLogin(ctx router.Context, loginRegisterPath string, backURL string) {
-	queryParams := url.Values{
-		"redirect": {backURL},
-	}
-	ctx.HttpRedirect(loginRegisterPath + "?" + queryParams.Encode())
 }
 
 const oauthLoginSessionCookie = "oauth_login_sess"

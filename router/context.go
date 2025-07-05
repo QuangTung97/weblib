@@ -29,6 +29,10 @@ func (c Context) Context() context.Context {
 	return c.Request.Context()
 }
 
+func (c Context) GetWriter() http.ResponseWriter {
+	return c.writer
+}
+
 func (c Context) HttpRedirect(redirectURL string) {
 	c.state.responded = true
 	http.Redirect(c.writer, c.Request, redirectURL, http.StatusTemporaryRedirect)

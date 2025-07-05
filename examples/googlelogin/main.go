@@ -16,6 +16,8 @@ import (
 
 const oauthLoginPath = "/oauth/login"
 
+var loginPath = urls.New[oauth.LoginParams]("/login")
+
 var oauthCallbackPath = urls.New[oauth.CallbackParams]("/oauth/callback")
 
 type HomeParams struct {
@@ -36,8 +38,10 @@ func main() {
 	oauthSvc := oauth.InitService(oauthConf, oauth.GoogleSuccessCallback())
 
 	// setup url paths
-	rootRouter.GetChi().Get(oauthLoginPath, oauthSvc.HandleLogin)
+	router.HtmlGet(rootRouter, loginPath, oauthSvc.HandleLogin)
 	router.HtmlGet(rootRouter, oauthCallbackPath, oauthSvc.HandleCallback)
+
+	// setup home page
 	router.HtmlGet(rootRouter, homePath, func(ctx router.Context, params HomeParams) (hx.Elem, error) {
 		return hx.Div(
 			hx.Text("Hello World"),
