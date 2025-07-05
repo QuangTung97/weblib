@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/base64"
 	"encoding/hex"
 	"strconv"
 	"strings"
@@ -22,22 +21,24 @@ func (e *Error) Error() string {
 
 type Core struct {
 	secretKey string
-	randFunc  func() []byte
+	randFunc  func(n int) []byte
 }
 
 func InitCore(secretKey string) *Core {
-	return NewCore(secretKey, func() []byte {
-		var data [20]byte
-		if _, err := rand.Read(data[:]); err != nil {
-			panic(err)
-		}
-		return data[:]
-	})
+	return NewCore(secretKey, realRand)
+}
+
+func realRand(n int) []byte {
+	data := make([]byte, n)
+	if _, err := rand.Read(data[:]); err != nil {
+		panic(err)
+	}
+	return data
 }
 
 func NewCore(
 	secretKey string, // for HMAC
-	randFunc func() []byte,
+	randFunc func(n int) []byte,
 ) *Core {
 	return &Core{
 		secretKey: secretKey,
@@ -46,7 +47,7 @@ func NewCore(
 }
 
 func (g *Core) generateBeforeDigest(sessionID string) ([]byte, string) {
-	randData := g.randFunc()
+	randData := g.randFunc(20)
 	randStr := hex.EncodeToString(randData)
 	return g.generateMessageWithRandData(sessionID, randStr), randStr
 }
@@ -73,7 +74,7 @@ func (g *Core) generateMessageWithRandData(sessionID string, randStr string) []b
 func (g *Core) Generate(sessionID string) string {
 	msgBytes, randStr := g.generateBeforeDigest(sessionID)
 	hashBytes := g.computeHMAC(msgBytes)
-	return base64.URLEncoding.EncodeToString(hashBytes) + "." + randStr
+	return hex.EncodeToString(hashBytes) + "." + randStr
 }
 
 func (g *Core) computeHMAC(msgBytes []byte) []byte {
@@ -91,7 +92,7 @@ func (g *Core) Validate(sessionID string, csrfToken string) error {
 	digestPart := parts[0]
 	randStr := parts[1]
 
-	inputDigest, err := base64.URLEncoding.DecodeString(digestPart)
+	inputDigest, err := hex.DecodeString(digestPart)
 	if err != nil {
 		return err
 	}
