@@ -2,6 +2,7 @@ package crsf
 
 import (
 	"encoding/base64"
+	"fmt"
 	"net/http"
 
 	"github.com/QuangTung97/weblib/null"
@@ -11,10 +12,12 @@ import (
 func NewMiddleware(
 	core *Core,
 	getSessionID func(ctx router.Context) null.Null[string],
+	getCsrfToken func(ctx router.Context) null.Null[string],
 ) router.Middleware {
 	m := middlewareLogic{
 		core:             core,
 		getSessionIDFunc: getSessionID,
+		getCsrfTokenFunc: getCsrfToken,
 	}
 	return m.runMiddleware
 }
@@ -25,19 +28,30 @@ const (
 )
 
 type middlewareLogic struct {
-	core             *Core
+	core *Core
+
 	getSessionIDFunc func(ctx router.Context) null.Null[string]
+	getCsrfTokenFunc func(ctx router.Context) null.Null[string]
 }
 
-func (m *middlewareLogic) getSessionID(ctx router.Context) (string, func()) {
+func (m *middlewareLogic) getSessionIDOrPreSession(ctx router.Context) null.Null[string] {
 	sessionID := m.getSessionIDFunc(ctx)
 	if sessionID.Valid {
-		return sessionID.Data, func() {}
+		return sessionID
 	}
 
 	preSessCookie, err := ctx.Request.Cookie(preSessionCookieName)
 	if err == nil {
-		return preSessCookie.Value, func() {}
+		return null.New(preSessCookie.Value)
+	}
+
+	return null.Null[string]{}
+}
+
+func (m *middlewareLogic) getSessionIDOrGenNew(ctx router.Context) (string, func()) {
+	sessionID := m.getSessionIDOrPreSession(ctx)
+	if sessionID.Valid {
+		return sessionID.Data, func() {}
 	}
 
 	preSessionID := base64.URLEncoding.EncodeToString(m.core.randFunc(20))
@@ -61,16 +75,39 @@ func (m *middlewareLogic) handleGet(
 		return nil, err
 	}
 
-	sessionID, updateFn := m.getSessionID(ctx)
+	sessionID, updateFn := m.getSessionIDOrGenNew(ctx)
 	updateFn()
 
-	csrfToken := m.core.Generate(sessionID)
-	http.SetCookie(ctx.GetWriter(), &http.Cookie{
-		Name:  csrfCookieName,
-		Value: csrfToken,
-	})
+	_, err = ctx.Request.Cookie(csrfCookieName)
+	if err != nil {
+		csrfToken := m.core.Generate(sessionID)
+		http.SetCookie(ctx.GetWriter(), &http.Cookie{
+			Name:  csrfCookieName,
+			Value: csrfToken,
+		})
+	}
 
 	return resp, nil
+}
+
+func (m *middlewareLogic) handleNonGet(
+	ctx router.Context, handler router.GenericHandler, req any,
+) (any, error) {
+	sessionID := m.getSessionIDOrPreSession(ctx)
+	if !sessionID.Valid {
+		return nil, fmt.Errorf("not found session id or pre-session id")
+	}
+
+	csrfToken := m.getCsrfTokenFunc(ctx)
+	if !csrfToken.Valid {
+		return nil, fmt.Errorf("not found csrf token")
+	}
+
+	if err := m.core.Validate(sessionID.Data, csrfToken.Data); err != nil {
+		return nil, err
+	}
+
+	return handler(ctx, req)
 }
 
 func (m *middlewareLogic) runMiddleware(
@@ -81,6 +118,6 @@ func (m *middlewareLogic) runMiddleware(
 			return m.handleGet(ctx, handler, req)
 		}
 
-		return handler(ctx, req)
+		return m.handleNonGet(ctx, handler, req)
 	}
 }

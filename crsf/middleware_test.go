@@ -15,9 +15,11 @@ import (
 
 type middlewareTest struct {
 	sessionID null.Null[string]
-	core      *Core
-	ctx       router.Context
-	writer    *httptest.ResponseRecorder
+	csrfToken null.Null[string]
+
+	core   *Core
+	ctx    router.Context
+	writer *httptest.ResponseRecorder
 
 	middleware router.Middleware
 
@@ -45,6 +47,9 @@ func newMiddlewareTest(
 		func(ctx router.Context) null.Null[string] {
 			return m.sessionID
 		},
+		func(ctx router.Context) null.Null[string] {
+			return m.csrfToken
+		},
 	)
 
 	return m
@@ -54,7 +59,7 @@ func (m *middlewareTest) addAction(a string) {
 	m.actions = append(m.actions, a)
 }
 
-func TestMiddleware(t *testing.T) {
+func TestMiddleware__HandleGet(t *testing.T) {
 	t.Run("get without session id and pre-session", func(t *testing.T) {
 		m := newMiddlewareTest(http.MethodGet)
 
@@ -110,5 +115,63 @@ func TestMiddleware(t *testing.T) {
 		}, m.writer.Header())
 
 		assert.Equal(t, []string{"handler"}, m.actions)
+	})
+
+	t.Run("already had csrf_token, do nothing", func(t *testing.T) {
+		m := newMiddlewareTest(http.MethodGet)
+
+		m.ctx.Request.AddCookie(&http.Cookie{
+			Name:     preSessionCookieName,
+			Value:    "random-pre-session",
+			HttpOnly: true,
+		})
+		m.ctx.Request.AddCookie(&http.Cookie{
+			Name:  csrfCookieName,
+			Value: m.core.Generate("random-pre-session"),
+		})
+
+		handler := m.middleware(func(ctx router.Context, req any) (any, error) {
+			m.addAction("handler")
+			return "success", nil
+		})
+
+		// do handle
+		resp, err := handler(m.ctx, "input")
+		assert.Equal(t, nil, err)
+		assert.Equal(t, "success", resp)
+
+		// check cookie
+		assert.Equal(t, http.Header{}, m.writer.Header())
+
+		assert.Equal(t, []string{"handler"}, m.actions)
+	})
+}
+
+func TestMiddleware__HandlePost(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		m := newMiddlewareTest(http.MethodPost)
+
+		m.ctx.Request.AddCookie(&http.Cookie{
+			Name:     preSessionCookieName,
+			Value:    "random-pre-sess-value",
+			HttpOnly: true,
+		})
+
+		m.csrfToken = null.New(
+			m.core.Generate("random-pre-sess-value"),
+		)
+
+		handler := m.middleware(func(ctx router.Context, req any) (any, error) {
+			m.addAction("handler")
+			return "success", nil
+		})
+
+		// do handle
+		resp, err := handler(m.ctx, "input")
+		assert.Equal(t, nil, err)
+		assert.Equal(t, "success", resp)
+
+		// check cookie, no new cookie set
+		assert.Equal(t, http.Header{}, m.writer.Header())
 	})
 }
