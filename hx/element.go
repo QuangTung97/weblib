@@ -24,10 +24,7 @@ func Collect(seq iter.Seq[Elem]) Elem {
 	}
 }
 
-func newNormalTag(
-	name string,
-	children []Elem,
-) Elem {
+func newNormalTag(name string, children ...Elem) Elem {
 	e := Elem{
 		elemType: elemTypeNormalTag,
 		name:     []byte(name),
@@ -41,19 +38,27 @@ func newNormalTag(
 }
 
 func Div(children ...Elem) Elem {
-	return newNormalTag("div", children)
+	return newNormalTag("div", children...)
 }
 
 func A(children ...Elem) Elem {
-	return newNormalTag("a", children)
+	return newNormalTag("a", children...)
 }
 
 func Href(urlPath string) Elem {
 	return newUnsafeAttr("href", urlPath)
 }
 
+func Script(children ...Elem) Elem {
+	return newNormalTag("script", children...)
+}
+
+func Src(urlPath string) Elem {
+	return newUnsafeAttr("src", urlPath)
+}
+
 func Ul(children ...Elem) Elem {
-	return newNormalTag("ul", children)
+	return newNormalTag("ul", children...)
 }
 
 func Text(text string) Elem {
@@ -91,7 +96,7 @@ func Name(val string) Elem {
 	return newNormalAttr("name", val)
 }
 
-func newSimpleTag(name string, children []Elem) Elem {
+func newSimpleTag(name string, children ...Elem) Elem {
 	e := Elem{
 		elemType: elemTypeSimpleTag,
 		name:     []byte(name),
@@ -106,9 +111,9 @@ func newSimpleTag(name string, children []Elem) Elem {
 }
 
 func Br() Elem {
-	return newSimpleTag("br", nil)
+	return newSimpleTag("br")
 }
 
 func Input(children ...Elem) Elem {
-	return newSimpleTag("input", children)
+	return newSimpleTag("input", children...)
 }

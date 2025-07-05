@@ -17,7 +17,7 @@ func StrictForm[T any](
 		paramSet[param] = struct{}{}
 	}
 
-	e := newNormalTag("form", children)
+	e := newNormalTag("form", children...)
 
 	var violated bool
 	var violatedName string
