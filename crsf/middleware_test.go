@@ -2,6 +2,7 @@ package crsf
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -30,6 +31,7 @@ func newMiddlewareTest(
 	method string,
 ) *middlewareTest {
 	m := &middlewareTest{}
+	m.actions = []string{}
 
 	m.core = NewCore(
 		"secret-key-01",
@@ -145,6 +147,31 @@ func TestMiddleware__HandleGet(t *testing.T) {
 
 		assert.Equal(t, []string{"handler"}, m.actions)
 	})
+
+	t.Run("with handler error", func(t *testing.T) {
+		m := newMiddlewareTest(http.MethodGet)
+
+		handler := m.middleware(func(ctx router.Context, req any) (any, error) {
+			m.addAction("handler")
+			return nil, errors.New("handle err")
+		})
+
+		// do handle
+		resp, err := handler(m.ctx, "input")
+		assert.Equal(t, errors.New("handle err"), err)
+		assert.Equal(t, nil, resp)
+
+		// check cookie
+		assert.Equal(t, http.Header{
+			"Set-Cookie": {
+				"pre_session_id=KioqKioqKioqKioqKioqKioqKio=; Max-Age=604800; HttpOnly",
+				fmt.Sprintf(
+					"csrf_token=%s",
+					m.core.Generate("KioqKioqKioqKioqKioqKioqKio="),
+				),
+			},
+		}, m.writer.Header())
+	})
 }
 
 func TestMiddleware__HandlePost(t *testing.T) {
@@ -173,5 +200,114 @@ func TestMiddleware__HandlePost(t *testing.T) {
 
 		// check cookie, no new cookie set
 		assert.Equal(t, http.Header{}, m.writer.Header())
+
+		// check action
+		assert.Equal(t, []string{"handler"}, m.actions)
+	})
+
+	t.Run("success, with normal session id", func(t *testing.T) {
+		m := newMiddlewareTest(http.MethodPost)
+
+		m.sessionID = null.New("real-session-id")
+
+		m.csrfToken = null.New(
+			m.core.Generate("real-session-id"),
+		)
+
+		handler := m.middleware(func(ctx router.Context, req any) (any, error) {
+			m.addAction("handler")
+			return "success", nil
+		})
+
+		// do handle
+		resp, err := handler(m.ctx, "input")
+		assert.Equal(t, nil, err)
+		assert.Equal(t, "success", resp)
+
+		// check cookie, no new cookie set
+		assert.Equal(t, http.Header{}, m.writer.Header())
+
+		// check action
+		assert.Equal(t, []string{"handler"}, m.actions)
+	})
+
+	t.Run("no pre session or session id", func(t *testing.T) {
+		m := newMiddlewareTest(http.MethodPost)
+
+		m.csrfToken = null.New(
+			m.core.Generate("random-pre-sess-value"),
+		)
+
+		handler := m.middleware(func(ctx router.Context, req any) (any, error) {
+			m.addAction("handler")
+			return "success", nil
+		})
+
+		// do handle
+		resp, err := handler(m.ctx, "input")
+		assert.Equal(t, errors.New("not found session id or pre-session id"), err)
+		assert.Equal(t, nil, resp)
+
+		// check cookie, no new cookie set
+		assert.Equal(t, http.Header{}, m.writer.Header())
+
+		// check action
+		assert.Equal(t, []string{}, m.actions)
+	})
+
+	t.Run("no csrf token", func(t *testing.T) {
+		m := newMiddlewareTest(http.MethodPost)
+
+		m.ctx.Request.AddCookie(&http.Cookie{
+			Name:     preSessionCookieName,
+			Value:    "random-pre-sess-value",
+			HttpOnly: true,
+		})
+
+		handler := m.middleware(func(ctx router.Context, req any) (any, error) {
+			m.addAction("handler")
+			return "success", nil
+		})
+
+		// do handle
+		resp, err := handler(m.ctx, "input")
+		assert.Equal(t, errors.New("not found csrf token"), err)
+		assert.Equal(t, nil, resp)
+
+		// check cookie, no new cookie set
+		assert.Equal(t, http.Header{}, m.writer.Header())
+
+		// check action
+		assert.Equal(t, []string{}, m.actions)
+	})
+
+	t.Run("invalid csrf token", func(t *testing.T) {
+		m := newMiddlewareTest(http.MethodPost)
+
+		m.ctx.Request.AddCookie(&http.Cookie{
+			Name:     preSessionCookieName,
+			Value:    "random-pre-sess-value",
+			HttpOnly: true,
+		})
+
+		m.csrfToken = null.New(
+			m.core.Generate("random-pre-sess-invalid"),
+		)
+
+		handler := m.middleware(func(ctx router.Context, req any) (any, error) {
+			m.addAction("handler")
+			return "success", nil
+		})
+
+		// do handle
+		resp, err := handler(m.ctx, "input")
+		assert.Equal(t, &Error{Message: "invalid csrf token"}, err)
+		assert.Equal(t, nil, resp)
+
+		// check cookie, no new cookie set
+		assert.Equal(t, http.Header{}, m.writer.Header())
+
+		// check action
+		assert.Equal(t, []string{}, m.actions)
 	})
 }

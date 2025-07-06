@@ -67,27 +67,27 @@ func (m *middlewareLogic) getSessionIDOrGenNew(ctx router.Context) (string, func
 	return preSessionID, updateFn
 }
 
+func (m *middlewareLogic) setCsrfTokenIfNotExist(ctx router.Context) {
+	sessionID, updateFn := m.getSessionIDOrGenNew(ctx)
+	updateFn()
+
+	if _, err := ctx.Request.Cookie(csrfCookieName); err == nil {
+		return
+	}
+
+	csrfToken := m.core.Generate(sessionID)
+	http.SetCookie(ctx.GetWriter(), &http.Cookie{
+		Name:  csrfCookieName,
+		Value: csrfToken,
+	})
+}
+
 func (m *middlewareLogic) handleGet(
 	ctx router.Context, handler router.GenericHandler, req any,
 ) (any, error) {
 	resp, err := handler(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	sessionID, updateFn := m.getSessionIDOrGenNew(ctx)
-	updateFn()
-
-	_, err = ctx.Request.Cookie(csrfCookieName)
-	if err != nil {
-		csrfToken := m.core.Generate(sessionID)
-		http.SetCookie(ctx.GetWriter(), &http.Cookie{
-			Name:  csrfCookieName,
-			Value: csrfToken,
-		})
-	}
-
-	return resp, nil
+	m.setCsrfTokenIfNotExist(ctx)
+	return resp, err
 }
 
 func (m *middlewareLogic) handleNonGet(
