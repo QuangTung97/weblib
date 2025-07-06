@@ -1,4 +1,4 @@
-package crsf
+package csrf
 
 import (
 	"bytes"
@@ -305,7 +305,9 @@ func TestMiddleware__HandlePost(t *testing.T) {
 		assert.Equal(t, nil, resp)
 
 		// check cookie, no new cookie set
-		assert.Equal(t, http.Header{}, m.writer.Header())
+		assert.Equal(t, http.Header{
+			"Set-Cookie": {"csrf_token=; Max-Age=0"},
+		}, m.writer.Header())
 
 		// check action
 		assert.Equal(t, []string{}, m.actions)

@@ -1,4 +1,4 @@
-package crsf
+package csrf
 
 import (
 	"encoding/hex"

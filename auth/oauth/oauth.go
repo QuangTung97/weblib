@@ -14,6 +14,10 @@ import (
 	"github.com/QuangTung97/weblib/router"
 )
 
+const (
+	oauthLoginSessionCookie = "oauth_login_sess"
+)
+
 type Service interface {
 	HandleLogin(ctx router.Context, params LoginParams) (hx.Elem, error)
 	HandleCallback(ctx router.Context, params CallbackParams) (hx.Elem, error)
@@ -105,8 +109,6 @@ func (s *serviceImpl) HandleCallback(ctx router.Context, params CallbackParams) 
 	ctx.HttpRedirect(state.RedirectURL)
 	return hx.None(), nil
 }
-
-const oauthLoginSessionCookie = "oauth_login_sess"
 
 type oauthState struct {
 	LoginSession string `json:"login_session"`

@@ -9,6 +9,7 @@ import (
 	"golang.org/x/oauth2/google"
 
 	"github.com/QuangTung97/weblib/auth/oauth"
+	"github.com/QuangTung97/weblib/csrf"
 	"github.com/QuangTung97/weblib/examples/googlelogin/simple"
 	"github.com/QuangTung97/weblib/hx"
 	"github.com/QuangTung97/weblib/router"
@@ -16,6 +17,9 @@ import (
 
 func main() {
 	rootRouter := router.NewRouter()
+	rootRouter = rootRouter.WithMiddlewares(
+		csrf.InitMiddleware("test-hmac-key01"),
+	)
 
 	clientFile := simple.LoadGoogleClient("data/google_client.json")
 

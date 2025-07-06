@@ -1,4 +1,4 @@
-package crsf
+package csrf
 
 import (
 	"encoding/base64"
@@ -7,6 +7,14 @@ import (
 
 	"github.com/QuangTung97/weblib/null"
 	"github.com/QuangTung97/weblib/router"
+)
+
+const (
+	preSessionCookieName = "pre_session_id"
+	csrfCookieName       = "csrf_token"
+
+	sessionIDCookieName = "session_id"
+	csrfHeaderKey       = "X-Csrf-Token"
 )
 
 func NewMiddleware(
@@ -21,11 +29,6 @@ func NewMiddleware(
 	}
 	return m.runMiddleware
 }
-
-const (
-	preSessionCookieName = "pre_session_id"
-	csrfCookieName       = "csrf_token"
-)
 
 type middlewareLogic struct {
 	core *Core
@@ -104,6 +107,12 @@ func (m *middlewareLogic) handleNonGet(
 	}
 
 	if err := m.core.Validate(sessionID.Data, csrfToken.Data); err != nil {
+		// delete the csrf token in cookie
+		http.SetCookie(ctx.GetWriter(), &http.Cookie{
+			Name:   csrfCookieName,
+			Value:  "",
+			MaxAge: -1,
+		})
 		return nil, err
 	}
 
