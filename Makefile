@@ -11,4 +11,4 @@ test:
 
 .PHONY: run
 run:
-	source .env && go run examples/googlelogin/main.go
+	go run examples/googlelogin/main.go

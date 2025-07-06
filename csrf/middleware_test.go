@@ -78,7 +78,7 @@ func TestMiddleware__HandleGet(t *testing.T) {
 		// check cookie
 		assert.Equal(t, http.Header{
 			"Set-Cookie": {
-				"pre_session_id=KioqKioqKioqKioqKioqKioqKio=; Max-Age=604800; HttpOnly",
+				"pre_session_id=KioqKioqKioqKioqKioqKioqKio=; Max-Age=2592000; HttpOnly",
 				fmt.Sprintf(
 					"csrf_token=%s",
 					m.core.Generate("KioqKioqKioqKioqKioqKioqKio="),
@@ -164,7 +164,7 @@ func TestMiddleware__HandleGet(t *testing.T) {
 		// check cookie
 		assert.Equal(t, http.Header{
 			"Set-Cookie": {
-				"pre_session_id=KioqKioqKioqKioqKioqKioqKio=; Max-Age=604800; HttpOnly",
+				"pre_session_id=KioqKioqKioqKioqKioqKioqKio=; Max-Age=2592000; HttpOnly",
 				fmt.Sprintf(
 					"csrf_token=%s",
 					m.core.Generate("KioqKioqKioqKioqKioqKioqKio="),

@@ -63,7 +63,7 @@ func (m *middlewareLogic) getSessionIDOrGenNew(ctx router.Context) (string, func
 			Name:     preSessionCookieName,
 			Value:    preSessionID,
 			HttpOnly: true,
-			MaxAge:   7 * 24 * 3600, // 7 days
+			MaxAge:   30 * 24 * 3600, // 30 days
 		})
 	}
 
