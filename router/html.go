@@ -54,6 +54,11 @@ func htmlMethod[T any](
 	urlPath urls.Path[T],
 	handler func(ctx Context, params T) (hx.Elem, error),
 ) {
+	for _, fn := range router.paramValidators {
+		var empty T
+		fn(empty)
+	}
+
 	pattern := urlPath.GetPattern()
 
 	// check duplicate endpoint

@@ -404,3 +404,48 @@ func TestHtmlGet__With_Redirect(t *testing.T) {
 		},
 	}, h.writer.Header())
 }
+
+type testParams01 struct {
+	ID int64 `json:"id"`
+}
+
+type testParamInterface interface {
+	GetID() int64
+}
+
+func (p testParams01) GetID() int64 {
+	return p.ID
+}
+
+var _ testParamInterface = testParams01{}
+
+type testParams02 struct {
+	ID int64 `json:"id"`
+}
+
+func TestHtmlGet__With_Params_Validator(t *testing.T) {
+	h := newHtmlTest()
+
+	router := h.router.WithParamValidator(
+		func(params any) {
+			_, ok := params.(testParamInterface)
+			if !ok {
+				panic("Missing GetID()")
+			}
+		},
+	)
+
+	// success
+	urlPath01 := urls.New[testParams01]("/users/{id}")
+	HtmlGet(router, urlPath01, func(ctx Context, params testParams01) (hx.Elem, error) {
+		return hx.Div(), nil
+	})
+
+	// panic
+	urlPath02 := urls.New[testParams02]("/users-v2/{id}")
+	assert.PanicsWithValue(t, "Missing GetID()", func() {
+		HtmlGet(router, urlPath02, func(ctx Context, params testParams02) (hx.Elem, error) {
+			return hx.Div(), nil
+		})
+	})
+}

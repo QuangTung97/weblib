@@ -7,9 +7,10 @@ import (
 )
 
 type Router struct {
-	state       *routerState
-	middlewares []Middleware
-	urlPrefix   string
+	state           *routerState
+	middlewares     []Middleware
+	urlPrefix       string
+	paramValidators []func(params any)
 }
 
 func NewRouter() *Router {
@@ -34,6 +35,14 @@ func (r *Router) WithGroup(groupPrefix string) *Router {
 
 func (r *Router) GetChi() *chi.Mux {
 	return r.state.chi
+}
+
+func (r *Router) WithParamValidator(
+	validators ...func(params any),
+) *Router {
+	newRouter := *r
+	newRouter.paramValidators = append(newRouter.paramValidators, validators...)
+	return &newRouter
 }
 
 // -------------------------------------------------------------------------
