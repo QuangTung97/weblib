@@ -21,6 +21,7 @@ type Provider interface {
 type Readonly interface {
 	GetContext(ctx context.Context, dest any, query string, args ...any) error
 	SelectContext(ctx context.Context, dest any, query string, args ...any) error
+	QueryxContext(ctx context.Context, query string, args ...any) (*sqlx.Rows, error)
 	Rebind(query string) string
 }
 
