@@ -219,6 +219,9 @@ func TestService_HandleCallback(t *testing.T) {
 		assert.Equal(t, http.Header{
 			"Content-Type": {"text/html; charset=utf-8"},
 			"Location":     {"/user/123"},
+			"Set-Cookie": {
+				"oauth_login_sess=; Path=/; Max-Age=0",
+			},
 		}, s.writer.Header())
 	})
 

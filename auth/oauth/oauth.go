@@ -106,6 +106,15 @@ func (s *serviceImpl) HandleCallback(ctx router.Context, params CallbackParams) 
 		return hx.None(), err
 	}
 
+	// clear oauth login session cookie
+	cookie := http.Cookie{
+		Name:   oauthLoginSessionCookie,
+		Value:  "",
+		MaxAge: -1,
+		Path:   "/",
+	}
+	http.SetCookie(ctx.GetWriter(), &cookie)
+
 	ctx.HttpRedirect(state.RedirectURL)
 	return hx.None(), nil
 }
