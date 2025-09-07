@@ -95,7 +95,7 @@ func TestService_HandleLogin(t *testing.T) {
 		// check header
 		assert.Equal(t, http.Header{
 			"Set-Cookie": {
-				"oauth_login_sess=cmFuZDAx; Expires=Sat, 28 Jun 2025 10:40:00 GMT",
+				"oauth_login_sess=cmFuZDAx; Path=/; Expires=Sat, 28 Jun 2025 10:40:00 GMT",
 			},
 		}, s.writer.Header())
 	})
@@ -120,7 +120,7 @@ func TestService_HandleLogin(t *testing.T) {
 				"text/html; charset=utf-8",
 			},
 			"Set-Cookie": {
-				"oauth_login_sess=cmFuZDAx; Expires=Sat, 28 Jun 2025 10:40:00 GMT",
+				"oauth_login_sess=cmFuZDAx; Path=/; Expires=Sat, 28 Jun 2025 10:40:00 GMT",
 			},
 		}, checkHeader)
 

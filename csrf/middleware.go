@@ -64,6 +64,7 @@ func (m *middlewareLogic) getSessionIDOrGenNew(ctx router.Context) (string, func
 			Value:    preSessionID,
 			HttpOnly: true,
 			MaxAge:   30 * 24 * 3600, // 30 days
+			Path:     "/",
 		})
 	}
 
@@ -82,6 +83,7 @@ func (m *middlewareLogic) setCsrfTokenIfNotExist(ctx router.Context) {
 	http.SetCookie(ctx.GetWriter(), &http.Cookie{
 		Name:  csrfCookieName,
 		Value: csrfToken,
+		Path:  "/",
 	})
 }
 
@@ -112,6 +114,7 @@ func (m *middlewareLogic) handleNonGet(
 			Name:   csrfCookieName,
 			Value:  "",
 			MaxAge: -1,
+			Path:   "/",
 		})
 		return nil, err
 	}

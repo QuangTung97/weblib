@@ -124,6 +124,7 @@ func (s *serviceImpl) generateStateOauthCookie(w http.ResponseWriter, redirectUR
 		Name:    oauthLoginSessionCookie,
 		Value:   sessStr,
 		Expires: expiration,
+		Path:    "/",
 	}
 	http.SetCookie(w, &cookie)
 
