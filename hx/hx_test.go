@@ -187,3 +187,11 @@ func TestElem_Render__With_Writer_Error(t *testing.T) {
 	assert.Equal(t, errors.New("write error"), err)
 	assert.Equal(t, "<", w.data)
 }
+
+func TestElem_Render__Link(t *testing.T) {
+	elem := Link(
+		Href("./input.css"),
+		Rel("stylesheet"),
+	)
+	assertSimpleContent(t, `<link href="./input.css" rel="stylesheet">`, elem)
+}

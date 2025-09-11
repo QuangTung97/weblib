@@ -30,6 +30,10 @@ func Html(
 		newSimpleTag("meta",
 			newNormalAttr("charset", "UTF-8"),
 		),
+		newSimpleTag("meta",
+			newNormalAttr("name", "viewport"),
+			newNormalAttr("content", "width=device-width, initial-scale=1.0"),
+		),
 		head,
 	}
 

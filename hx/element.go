@@ -57,6 +57,10 @@ func Src(urlPath string) Elem {
 	return newUnsafeAttr("src", urlPath)
 }
 
+func Rel(value string) Elem {
+	return newUnsafeAttr("rel", value)
+}
+
 func Ul(children ...Elem) Elem {
 	return newNormalTag("ul", children...)
 }
@@ -116,4 +120,8 @@ func Br() Elem {
 
 func Input(children ...Elem) Elem {
 	return newSimpleTag("input", children...)
+}
+
+func Link(children ...Elem) Elem {
+	return newSimpleTag("link", children...)
 }
