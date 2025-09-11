@@ -116,6 +116,10 @@ func htmlMethod[T any](
 			return err
 		}
 
+		if resp == nil {
+			return nil
+		}
+
 		outputElem, ok := resp.(hx.Elem)
 		if !ok {
 			err := fmt.Errorf("failed to convert response to hx.Elem")

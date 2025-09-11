@@ -449,3 +449,48 @@ func TestHtmlGet__With_Params_Validator(t *testing.T) {
 		})
 	})
 }
+
+func TestHtmlGet__Normal__Middleware__Redirect(t *testing.T) {
+	h := newHtmlTest()
+
+	h.router = h.router.WithMiddlewares(
+		func(handler GenericHandler) GenericHandler {
+			return func(ctx Context, req any) (any, error) {
+				h.addAction("middleware01")
+				ctx.HttpRedirect("/login")
+				return nil, nil
+			}
+		},
+	)
+
+	urlPath := urls.New[htmlParams]("/users/{id}")
+
+	var inputParams []htmlParams
+	HtmlGet(h.router, urlPath, func(ctx Context, params htmlParams) (hx.Elem, error) {
+		h.addAction("handler")
+		inputParams = append(inputParams, params)
+		return hx.Div(
+			hx.Text("Hello World"),
+		), nil
+	})
+
+	h.doGet("/users/123?search=test01")
+
+	// check input
+	assert.Equal(t, []htmlParams(nil), inputParams)
+
+	// check output
+	assert.Equal(t, 307, h.writer.Code)
+	assert.Equal(t, `<a href="/login">Temporary Redirect</a>.`+"\n\n", h.writer.Body.String())
+
+	// check headers
+	assert.Equal(t, http.Header{
+		"Content-Type": {"text/html; charset=utf-8"},
+		"Location":     {"/login"},
+	}, h.writer.Header())
+
+	// check actions
+	assert.Equal(t, []string{
+		"middleware01",
+	}, h.actions)
+}
