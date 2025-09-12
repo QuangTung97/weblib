@@ -28,6 +28,7 @@ const (
 	elemTypeSimpleTag
 	elemTypeContent
 	elemTypeAttribute
+	elemTypeEmptyAttribute
 	elemTypeGroup
 	elemTypeIter
 )
@@ -117,6 +118,10 @@ func (e Elem) renderAttribute(w *writerHelper) {
 		w.writeBytes(doubleQuote)
 		w.writeBytes(e.value)
 		w.writeBytes(doubleQuote)
+
+	case elemTypeEmptyAttribute:
+		w.writeBytes(singleSpace)
+		w.writeBytes(e.name)
 
 	case elemTypeGroup:
 		for child := range e.children {

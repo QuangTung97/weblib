@@ -143,13 +143,17 @@ func TestElem_Render(t *testing.T) {
 
 	t.Run("iterator", func(t *testing.T) {
 		iter := slices.Values([]Elem{
-			Ul(),
+			Ul(
+				Li(),
+			),
 			Div(),
 		})
 
 		expected := `
 <div>
-	<ul></ul>
+	<ul>
+		<li></li>
+	</ul>
 	<div></div>
 </div>
 `
@@ -194,4 +198,38 @@ func TestElem_Render__Link(t *testing.T) {
 		Rel("stylesheet"),
 	)
 	assertSimpleContent(t, `<link href="./input.css" rel="stylesheet">`, elem)
+}
+
+func TestElem_Render__ClassGroup(t *testing.T) {
+	elem := Div(
+		ClassGroup(
+			Class("mt-4"),
+			Class("w-48"),
+			Div(),
+			Name("invalid"),
+		),
+	)
+	assertSimpleContent(t, `<div class="mt-4 w-48"></div>`, elem)
+}
+
+func TestElem_Render__Select(t *testing.T) {
+	elem := Select(
+		Required(),
+		Disabled(),
+	)
+	assertSimpleContent(t, `<select required disabled></select>`, elem)
+}
+
+func TestElem_Render__Button(t *testing.T) {
+	elem := Button(
+		Text("Hello"),
+	)
+	assertSimpleContent(t, `<button>Hello</button>`, elem)
+}
+
+func TestElem_Render__Option(t *testing.T) {
+	elem := Option(
+		Text("Hello"),
+	)
+	assertSimpleContent(t, `<option>Hello</option>`, elem)
 }

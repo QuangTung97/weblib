@@ -14,10 +14,15 @@ type Router struct {
 }
 
 func NewRouter() *Router {
-	router := chi.NewRouter()
+	return NewRouterWithChi(
+		chi.NewRouter(),
+	)
+}
+
+func NewRouterWithChi(chiRouter chi.Router) *Router {
 	r := &Router{
 		state: &routerState{
-			chi:        router,
+			chi:        chiRouter,
 			registered: map[endpointKey]struct{}{},
 		},
 	}
@@ -33,7 +38,7 @@ func (r *Router) WithGroup(groupPrefix string) *Router {
 	return &newRouter
 }
 
-func (r *Router) GetChi() *chi.Mux {
+func (r *Router) GetChi() chi.Router {
 	return r.state.chi
 }
 
@@ -54,7 +59,7 @@ type endpointKey struct {
 	pattern string
 }
 type routerState struct {
-	chi        *chi.Mux
+	chi        chi.Router
 	registered map[endpointKey]struct{}
 
 	finalHooks []Middleware
