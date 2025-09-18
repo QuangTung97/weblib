@@ -249,7 +249,8 @@ func TestHtmlGet__Handler_Error__WithCustomErrorHandler(t *testing.T) {
 		return hx.None(), errors.New("handler error")
 	})
 
-	h.router.SetCustomHtmlErrorHandler(func(err error, writer http.ResponseWriter) {
+	h.router.SetCustomHtmlErrorHandler(func(ctx Context, err error) {
+		writer := ctx.GetWriter()
 		writer.WriteHeader(http.StatusInternalServerError)
 		_, _ = writer.Write([]byte(err.Error()))
 	})

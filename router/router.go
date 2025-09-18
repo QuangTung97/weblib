@@ -1,8 +1,6 @@
 package router
 
 import (
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
 )
 
@@ -64,5 +62,5 @@ type routerState struct {
 
 	finalHooks []Middleware
 
-	handleHtmlError func(err error, writer http.ResponseWriter)
+	handleHtmlError func(ctx Context, err error)
 }

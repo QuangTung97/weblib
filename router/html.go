@@ -139,7 +139,8 @@ func htmlMethod[T any](
 
 	router.state.chi.MethodFunc(method, urlPath.GetPattern(), func(writer http.ResponseWriter, req *http.Request) {
 		if err := stdHandlerError(writer, req); err != nil {
-			router.state.handleHtmlError(err, writer)
+			ctx := NewContext(writer, req)
+			router.state.handleHtmlError(ctx, err)
 		}
 	})
 }

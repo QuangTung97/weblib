@@ -37,3 +37,7 @@ func (c Context) HttpRedirect(redirectURL string) {
 	c.state.responded = true
 	http.Redirect(c.writer, c.Request, redirectURL, http.StatusTemporaryRedirect)
 }
+
+func (c Context) IsHxRequest() bool {
+	return c.Request.Header.Get("Hx-Request") == "true"
+}

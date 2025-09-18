@@ -22,15 +22,16 @@ func (e *HtmlError) Error() string {
 	return e.Message
 }
 
-func (r *Router) SetCustomHtmlErrorHandler(handler func(err error, writer http.ResponseWriter)) {
+func (r *Router) SetCustomHtmlErrorHandler(handler func(ctx Context, err error)) {
 	r.state.handleHtmlError = handler
 }
 
-func (r *Router) DefaultHtmlErrorHandler(err error, writer http.ResponseWriter) {
+func (r *Router) DefaultHtmlErrorHandler(ctx Context, err error) {
 	type errorMessage struct {
 		Error string `json:"error"`
 	}
 
+	writer := ctx.GetWriter()
 	writer.WriteHeader(http.StatusBadRequest)
 	writer.Header().Set("Content-Type", "application/json")
 
