@@ -26,27 +26,27 @@ func Html(
 	}
 
 	headList := []Elem{
-		newNormalTag("title", Text(title)),
-		newSimpleTag("meta",
-			newNormalAttr("charset", "UTF-8"),
+		NewNormalTag("title", Text(title)),
+		NewSimpleTag("meta",
+			NewNormalAttr("charset", "UTF-8"),
 		),
-		newSimpleTag("meta",
-			newNormalAttr("name", "viewport"),
-			newNormalAttr("content", "width=device-width, initial-scale=1.0"),
+		NewSimpleTag("meta",
+			NewNormalAttr("name", "viewport"),
+			NewNormalAttr("content", "width=device-width, initial-scale=1.0"),
 		),
 		head,
 	}
 
-	htmlContent := newNormalTag(
+	htmlContent := NewNormalTag(
 		"html",
-		newNormalAttr("lang", conf.lang),
+		NewNormalAttr("lang", conf.lang),
 
-		newNormalTag("head", headList...),
-		newNormalTag("body", body),
+		NewNormalTag("head", headList...),
+		NewNormalTag("body", body),
 	)
 
 	return Group(
-		newSimpleTag("!DOCTYPE html"),
+		NewSimpleTag("!DOCTYPE html"),
 		htmlContent,
 	)
 }

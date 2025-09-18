@@ -52,35 +52,35 @@ func ClassGroup(children ...Elem) Elem {
 // ----------------------------------------------------
 
 func Div(children ...Elem) Elem {
-	return newNormalTag("div", children...)
+	return NewNormalTag("div", children...)
 }
 
 func Button(children ...Elem) Elem {
-	return newNormalTag("button", children...)
+	return NewNormalTag("button", children...)
 }
 
 func A(children ...Elem) Elem {
-	return newNormalTag("a", children...)
+	return NewNormalTag("a", children...)
 }
 
 func Script(children ...Elem) Elem {
-	return newNormalTag("script", children...)
+	return NewNormalTag("script", children...)
 }
 
 func Ul(children ...Elem) Elem {
-	return newNormalTag("ul", children...)
+	return NewNormalTag("ul", children...)
 }
 
 func Li(children ...Elem) Elem {
-	return newNormalTag("li", children...)
+	return NewNormalTag("li", children...)
 }
 
 func Select(children ...Elem) Elem {
-	return newNormalTag("select", children...)
+	return NewNormalTag("select", children...)
 }
 
 func Option(children ...Elem) Elem {
-	return newNormalTag("option", children...)
+	return NewNormalTag("option", children...)
 }
 
 // ----------------------------------------------------
@@ -88,27 +88,27 @@ func Option(children ...Elem) Elem {
 // ----------------------------------------------------
 
 func Class(className string) Elem {
-	return newNormalAttr("class", className)
+	return NewNormalAttr("class", className)
 }
 
 func ID(id ElemID) Elem {
-	return newNormalAttr("id", string(id))
+	return NewNormalAttr("id", string(id))
 }
 
 func Name(val string) Elem {
-	return newNormalAttr("name", val)
+	return NewNormalAttr("name", val)
 }
 
 func Href(urlPath string) Elem {
-	return newUnsafeAttr("href", urlPath)
+	return NewUnsafeAttr("href", urlPath)
 }
 
 func Src(urlPath string) Elem {
-	return newUnsafeAttr("src", urlPath)
+	return NewUnsafeAttr("src", urlPath)
 }
 
 func Rel(value string) Elem {
-	return newNormalAttr("rel", value)
+	return NewNormalAttr("rel", value)
 }
 
 func Text(text string) Elem {
@@ -123,15 +123,15 @@ func Text(text string) Elem {
 // ----------------------------------------------------
 
 func Br() Elem {
-	return newSimpleTag("br")
+	return NewSimpleTag("br")
 }
 
 func Input(children ...Elem) Elem {
-	return newSimpleTag("input", children...)
+	return NewSimpleTag("input", children...)
 }
 
 func Link(children ...Elem) Elem {
-	return newSimpleTag("link", children...)
+	return NewSimpleTag("link", children...)
 }
 
 // ----------------------------------------------------
@@ -139,18 +139,18 @@ func Link(children ...Elem) Elem {
 // ----------------------------------------------------
 
 func Required() Elem {
-	return newEmptyAttr("required")
+	return NewEmptyAttr("required")
 }
 
 func Disabled() Elem {
-	return newEmptyAttr("disabled")
+	return NewEmptyAttr("disabled")
 }
 
 // ----------------------------------------------------
 // Helper Functions
 // ----------------------------------------------------
 
-func newNormalTag(name string, children ...Elem) Elem {
+func NewNormalTag(name string, children ...Elem) Elem {
 	e := Elem{
 		elemType: elemTypeNormalTag,
 		name:     []byte(name),
@@ -163,7 +163,7 @@ func newNormalTag(name string, children ...Elem) Elem {
 	return e
 }
 
-func newNormalAttr(name string, value string) Elem {
+func NewNormalAttr(name string, value string) Elem {
 	return Elem{
 		elemType: elemTypeAttribute,
 		name:     []byte(name),
@@ -171,7 +171,7 @@ func newNormalAttr(name string, value string) Elem {
 	}
 }
 
-func newUnsafeAttr(name string, value string) Elem {
+func NewUnsafeAttr(name string, value string) Elem {
 	return Elem{
 		elemType: elemTypeAttribute,
 		name:     []byte(name),
@@ -179,7 +179,7 @@ func newUnsafeAttr(name string, value string) Elem {
 	}
 }
 
-func newSimpleTag(name string, children ...Elem) Elem {
+func NewSimpleTag(name string, children ...Elem) Elem {
 	e := Elem{
 		elemType: elemTypeSimpleTag,
 		name:     []byte(name),
@@ -192,7 +192,7 @@ func newSimpleTag(name string, children ...Elem) Elem {
 	return e
 }
 
-func newEmptyAttr(name string) Elem {
+func NewEmptyAttr(name string) Elem {
 	return Elem{
 		elemType: elemTypeEmptyAttribute,
 		name:     []byte(name),
